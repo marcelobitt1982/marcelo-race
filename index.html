@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Enduro - Estrada Larga</title>
+    <title>Enduro - Estrada Larga & Fases</title>
     <style>
         body {
             margin: 0;
-            background-color: #0d0d0d;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
             color: #fff;
             font-family: 'Courier New', Courier, monospace;
             display: flex;
@@ -20,18 +20,20 @@
         }
 
         h1 {
-            margin: 2px;
-            font-size: 1.1rem;
+            margin: 5px;
+            font-size: 1.3rem;
             color: #f1c40f;
-            text-shadow: 2px 2px #c0392b;
+            text-shadow: 0 0 10px rgba(241, 196, 15, 0.6), 2px 2px #c0392b;
+            letter-spacing: 2px;
         }
 
         #game-container {
             position: relative;
-            box-shadow: 0 0 25px rgba(0,0,0,0.9);
-            border: 4px solid #333;
-            border-radius: 6px;
+            box-shadow: 0 10px 35px rgba(0,0,0,0.8);
+            border: 4px solid #444;
+            border-radius: 10px;
             overflow: hidden;
+            background: #000;
         }
 
         canvas {
@@ -48,40 +50,46 @@
             justify-content: space-between;
             width: 95vw;
             max-width: 650px;
-            margin-top: 10px;
-            padding: 0 10px;
+            margin-top: 12px;
+            padding: 0 5px;
             box-sizing: border-box;
         }
 
         .btn {
-            background-color: #222;
+            background: linear-gradient(to bottom, #333, #111);
             color: #fff;
-            border: 2px solid #555;
-            font-size: 1.2rem;
-            padding: 15px 30px;
-            border-radius: 8px;
+            border: 2px solid #666;
+            font-size: 1.1rem;
+            font-weight: bold;
+            padding: 16px 28px;
+            border-radius: 10px;
             user-select: none;
             cursor: pointer;
             outline: none;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            box-shadow: 0 5px 10px rgba(0,0,0,0.4);
+            transition: all 0.1s ease;
         }
 
-        .btn:active {
-            background-color: #f1c40f;
+        .btn:active, .btn.pressed {
+            background: linear-gradient(to bottom, #f1c40f, #d4ac0d);
             color: #000;
+            border-color: #f39c12;
+            transform: translateY(2px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.4);
         }
 
         .info-pc {
-            margin-top: 5px;
+            margin-top: 8px;
             font-size: 0.75rem;
-            color: #777;
+            color: #aaa;
             text-align: center;
+            letter-spacing: 1px;
         }
     </style>
 </head>
 <body>
 
-    <h1>ENDURO - SPEEDWAY</h1>
+    <h1>ENDURO - RACING DELUXE</h1>
     <div id="game-container">
         <canvas id="gameCanvas" width="700" height="650"></canvas>
     </div>
@@ -91,15 +99,15 @@
         <button class="btn" id="btnRight">DIREITA ▶</button>
     </div>
     
-    <div class="info-pc">Use as setas no PC ou toque nos botões no telemóvel.</div>
+    <div class="info-pc">Use as Setas do Teclado no PC ou toque nos botões.</div>
 
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
 
         // Variáveis do Jogador
-        const playerWidth = 46;
-        const playerHeight = 65;
+        const playerWidth = 48;
+        const playerHeight = 70;
         let playerX = canvas.width / 2 - playerWidth / 2;
         const playerY = canvas.height - 110;
 
@@ -115,19 +123,21 @@
         window.addEventListener('keydown', e => keys[e.key] = true);
         window.addEventListener('keyup', e => keys[e.key] = false);
 
-        // Controles de Toque (Telemóvel)
+        // Controles de Toque e Mouse (Telemóvel / PC)
         const btnLeft = document.getElementById('btnLeft');
         const btnRight = document.getElementById('btnRight');
 
-        btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowLeft'] = true; });
-        btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowLeft'] = false; });
-        btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowRight'] = true; });
-        btnRight.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowRight'] = false; });
+        function setupButton(btn, keyName) {
+            ['touchstart', 'mousedown'].forEach(evt => {
+                btn.addEventListener(evt, (e) => { e.preventDefault(); keys[keyName] = true; btn.classList.add('pressed'); });
+            });
+            ['touchend', 'mouseup', 'touchcancel'].forEach(evt => {
+                btn.addEventListener(evt, (e) => { e.preventDefault(); keys[keyName] = false; btn.classList.remove('pressed'); });
+            });
+        }
 
-        btnLeft.addEventListener('mousedown', () => keys['ArrowLeft'] = true);
-        btnLeft.addEventListener('mouseup', () => keys['ArrowLeft'] = false);
-        btnRight.addEventListener('mousedown', () => keys['ArrowRight'] = true);
-        btnRight.addEventListener('mouseup', () => keys['ArrowRight'] = false);
+        setupButton(btnLeft, 'ArrowLeft');
+        setupButton(btnRight, 'ArrowRight');
 
         function resetGame() {
             score = 0;
@@ -138,28 +148,38 @@
         }
 
         function spawnEnemy() {
+            const carTypes = [
+                { color: '#e74c3c', roof: '#c0392b' }, // Vermelho Esportivo
+                { color: '#3498db', roof: '#2980b9' }, // Azul Metálico
+                { color: '#2ecc71', roof: '#27ae60' }, // Verde
+                { color: '#9b59b6', roof: '#8e44ad' }, // Roxo
+                { color: '#e67e22', roof: '#d35400' }  // Laranja
+            ];
+            let type = carTypes[Math.floor(Math.random() * carTypes.length)];
+            
             enemies.push({
                 z: 0, 
-                offset: (Math.random() - 0.5) * 0.8, // Amplitude ajustada para a pista mais larga
-                color: ['#ff3838', '#ff9f1a', '#32ff7e', '#18dcff', '#cd84f1'][Math.floor(Math.random() * 5)]
+                offset: (Math.random() - 0.5) * 0.75, 
+                color: type.color,
+                roofColor: type.roof
             });
         }
 
-        // Sistema de Fases e Horários
+        // Sistema de Fases e Horários Estilizados
         function getEnvironment() {
-            let cycle = Math.floor(score / 150) % 4; // Dia, Pôr do Sol, Noite, Neblina
+            let cycle = Math.floor(score / 150) % 4; // 0: Dia, 1: Pôr do Sol, 2: Noite, 3: Neblina
             
-            let velocidadeBase = 0.004 + (Math.floor(score / 250) * 0.0008);
-            let velocidadeAtual = Math.min(velocidadeBase, 0.012); 
+            let velocidadeBase = 0.0045 + (Math.floor(score / 200) * 0.0009);
+            let velocidadeAtual = Math.min(velocidadeBase, 0.013); 
 
             if (cycle === 0) {
-                return { name: "DIA", skyColor: "#5dade2", groundColor: "#27ae60", trackColor: "#7f8c8d", lightsOn: false, fog: false, speed: velocidadeAtual };
+                return { name: "DIA ENSOLARADO", skyGrad: ["#2980b9", "#6dd5ed"], groundColor: "#27ae60", trackColor: "#34495e", stripeColor: "#f1c40f", lightsOn: false, fog: false, speed: velocidadeAtual };
             } else if (cycle === 1) {
-                return { name: "PÔR DO SOL", skyColor: "#d35400", groundColor: "#641e16", trackColor: "#566573", lightsOn: false, fog: false, speed: velocidadeAtual };
+                return { name: "PÔR DO SOL", skyGrad: ["#c0392b", "#d35400", "#f39c12"], groundColor: "#4a154b", trackColor: "#2c3e50", stripeColor: "#e74c3c", lightsOn: false, fog: false, speed: velocidadeAtual };
             } else if (cycle === 2) {
-                return { name: "NOITE", skyColor: "#0b0c10", groundColor: "#1b2631", trackColor: "#17202a", lightsOn: true, fog: false, speed: velocidadeAtual };
+                return { name: "NOITE PROFUNDA", skyGrad: ["#050505", "#0f2027"], groundColor: "#0b131d", trackColor: "#111822", stripeColor: "#3498db", lightsOn: true, fog: false, speed: velocidadeAtual };
             } else {
-                return { name: "NEBLINA", skyColor: "#85929e", groundColor: "#566573", trackColor: "#4a5568", lightsOn: true, fog: true, speed: velocidadeAtual };
+                return { name: "NEBLINA DENSA", skyGrad: ["#57606f", "#747d8c"], groundColor: "#4b6584", trackColor: "#3d3d3d", stripeColor: "#ffffff", lightsOn: true, fog: true, speed: velocidadeAtual };
             }
         }
 
@@ -168,15 +188,15 @@
 
             let env = getEnvironment();
 
-            // Limites ajustados para a estrada mais larga
+            // Movimentação suave do Jogador
             if (keys['ArrowLeft'] && playerX > 90) {
-                playerX -= 7;
+                playerX -= 8;
             }
             if (keys['ArrowRight'] && playerX < canvas.width - playerWidth - 90) {
-                playerX += 7;
+                playerX += 8;
             }
 
-            let tempoGeracao = Math.max(60, 110 - Math.floor(score / 30));
+            let tempoGeracao = Math.max(55, 105 - Math.floor(score / 25));
             spawnTimer++;
             if (spawnTimer > tempoGeracao) {
                 spawnEnemy();
@@ -188,15 +208,15 @@
                 en.z += env.speed; 
 
                 let trackTopWidth = 40;
-                let trackBaseWidth = 520; // Estrada consideravelmente mais larga na base
+                let trackBaseWidth = 520; 
                 let currentTrackWidth = trackTopWidth + en.z * (trackBaseWidth - trackTopWidth);
                 
                 let horizonY = 220;
-                let enY = horizonY + en.z * (canvas.height - horizonY);
                 let enX = (canvas.width / 2) + en.offset * (currentTrackWidth / 2);
 
+                // Colisão precisa
                 if (en.z > 0.82 && en.z < 0.98) {
-                    if (Math.abs(enX - (playerX + playerWidth/2)) < 25) {
+                    if (Math.abs(enX - (playerX + playerWidth/2)) < 26) {
                         gameOver = true;
                     }
                 }
@@ -208,71 +228,133 @@
             }
         }
 
-        // Desenhar o Carro do Jogador
-        function desenharMeuCarro(x, y, largura, altura, cor, luzesAcessas) {
-            ctx.fillStyle = 'rgba(0,0,0,0.4)';
+        // Desenhar o Carro do Jogador com Alta Qualidade Visual
+        function desenharMeuCarro(x, y, largura, altura, luzesAcessas) {
+            // Sombra no chão
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
             ctx.beginPath();
-            ctx.ellipse(x + largura/2, y + altura - 4, largura/2.2, 5, 0, 0, Math.PI * 2);
+            ctx.ellipse(x + largura/2, y + altura - 2, largura/2, 6, 0, 0, Math.PI * 2);
             ctx.fill();
 
-            ctx.fillStyle = '#111';
-            ctx.fillRect(x - 3, y + altura * 0.4, 6, altura * 0.45);
-            ctx.fillRect(x + largura - 3, y + altura * 0.4, 6, altura * 0.45);
+            // Pneus Laterais
+            ctx.fillStyle = '#0f0f0f';
+            ctx.fillRect(x - 4, y + altura * 0.35, 5, altura * 0.45);
+            ctx.fillRect(x + largura - 1, y + altura * 0.35, 5, altura * 0.45);
 
-            ctx.fillStyle = cor;
+            // Carroceria principal (Gradiente metálico)
+            let gradCar = ctx.createLinearGradient(x, y, x + largura, y);
+            gradCar.addColorStop(0, '#1e272e');
+            gradCar.addColorStop(0.5, '#485460');
+            gradCar.addColorStop(1, '#1e272e');
+            ctx.fillStyle = gradCar;
             ctx.beginPath();
-            ctx.roundRect(x, y + 8, largura, altura - 12, [10, 10, 5, 5]);
+            ctx.roundRect(x, y + 6, largura, altura - 10, [12, 12, 6, 6]);
             ctx.fill();
 
-            ctx.fillStyle = '#1b1b1b';
-            ctx.fillRect(x - 2, y + 12, largura + 4, 4);
-            ctx.fillStyle = cor;
-            ctx.fillRect(x + 3, y + 10, largura - 6, 3);
-
-            ctx.fillStyle = '#151515';
+            // Teto e Vidros
+            ctx.fillStyle = '#0b0e14';
             ctx.beginPath();
-            ctx.roundRect(x + 7, y + 20, largura - 14, altura - 38, 3);
+            ctx.roundRect(x + 6, y + 22, largura - 12, altura - 42, 4);
             ctx.fill();
 
-            ctx.fillStyle = '#ff4757';
-            ctx.shadowColor = '#ff6b81';
-            ctx.shadowBlur = 6;
-            ctx.fillRect(x + 3, y + 14, largura - 6, 4);
-            ctx.shadowBlur = 0; 
+            // Para-brisa frontal brilhante
+            ctx.fillStyle = '#00d2d3';
+            ctx.shadowColor = '#00d2d3';
+            ctx.shadowBlur = 8;
+            ctx.fillRect(x + 8, y + 14, largura - 16, 5);
+            ctx.shadowBlur = 0;
 
-            ctx.fillStyle = '#718093';
-            ctx.fillRect(x + 10, y + altura - 6, 4, 4);
-            ctx.fillRect(x + largura - 14, y + altura - 6, 4, 4);
+            // Faróis Traseiros / Luzes de Freio
+            ctx.fillStyle = '#ff3838';
+            ctx.shadowColor = '#ff4757';
+            ctx.shadowBlur = 10;
+            ctx.fillRect(x + 4, y + 8, 10, 4);
+            ctx.fillRect(x + largura - 14, y + 8, 10, 4);
+            ctx.shadowBlur = 0;
+
+            // Faróis Dianteiros (se luzes acesas)
+            if (luzesAcessas) {
+                ctx.fillStyle = '#f1c40f';
+                ctx.shadowColor = '#f1c40f';
+                ctx.shadowBlur = 12;
+                ctx.fillRect(x + 4, y + altura - 4, 8, 4);
+                ctx.fillRect(x + largura - 12, y + altura - 4, 8, 4);
+                ctx.shadowBlur = 0;
+            }
         }
 
-        // Inimigos em estilo Atari clássico
-        function desenharInimigoAtari(x, y, largura, altura, cor, luzesAcessas) {
-            const pixelSize = Math.max(2, Math.floor(largura / 12));
-            
-            ctx.fillStyle = cor;
-            ctx.fillRect(x + pixelSize, y, largura - pixelSize * 2, altura);
-            ctx.fillRect(x, y + pixelSize * 2, largura, altura - pixelSize * 2);
+        // Desenhar Inimigos Estilizados em Perspectiva
+        function desenharInimigo(x, y, largura, altura, cor, corTeto, luzesAcessas) {
+            // Sombra
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(x, y + altura/2, largura/2, altura/6, 0, 0, Math.PI * 2);
+            ctx.fill();
 
-            ctx.fillStyle = luzesAcessas ? '#ffff00' : '#ffffff';
-            ctx.fillRect(x + pixelSize, y, pixelSize * 2, pixelSize * 2);
-            ctx.fillRect(x + largura - pixelSize * 3, y, pixelSize * 2, pixelSize * 2);
+            // Carroceria
+            ctx.fillStyle = cor;
+            ctx.beginPath();
+            ctx.roundRect(x - largura/2, y - altura/2, largura, altura, 6);
+            ctx.fill();
+
+            // Teto / Vidros
+            ctx.fillStyle = corTeto;
+            ctx.beginPath();
+            ctx.roundRect(x - largura * 0.35, y - altura * 0.25, largura * 0.7, altura * 0.5, 3);
+            ctx.fill();
+
+            // Lanternas / Faróis dependendo do ambiente
+            if (luzesAcessas) {
+                ctx.fillStyle = '#ffff00';
+                ctx.shadowColor = '#ffff00';
+                ctx.shadowBlur = 6;
+                ctx.fillRect(x - largura * 0.35, y + altura * 0.3, 4, 3);
+                ctx.fillRect(x + largura * 0.35 - 4, y + altura * 0.3, 4, 3);
+                ctx.shadowBlur = 0;
+            } else {
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(x - largura * 0.3, y - altura * 0.4, largura * 0.6, 2);
+            }
         }
 
         function draw() {
             let env = getEnvironment();
             let horizonY = 220;
 
-            // 1. Céu
-            ctx.fillStyle = env.skyColor;
+            // 1. Céu com Gradiente Dinâmico
+            let skyGradient = ctx.createLinearGradient(0, 0, 0, horizonY);
+            env.skyGrad.forEach((color, index) => {
+                skyGradient.addColorStop(index / (env.skyGrad.length - 1), color);
+            });
+            ctx.fillStyle = skyGradient;
             ctx.fillRect(0, 0, canvas.width, horizonY);
 
-            // 2. Grama / Terreno
+            // Sol ou Lua no horizonte com base no ambiente
+            if (env.name === "DIA ENSOLARADO") {
+                ctx.fillStyle = '#f1c40f';
+                ctx.shadowColor = '#f39c12';
+                ctx.shadowBlur = 25;
+                ctx.beginPath();
+                ctx.arc(520, 80, 25, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            } else if (env.name === "PÔR DO SOL") {
+                ctx.fillStyle = '#e67e22';
+                ctx.shadowColor = '#d35400';
+                ctx.shadowBlur = 30;
+                ctx.beginPath();
+                ctx.arc(180, 150, 30, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            // 2. Terreno / Grama
             ctx.fillStyle = env.groundColor;
             ctx.fillRect(0, horizonY, canvas.width, canvas.height - horizonY);
 
-            // 3. Pista Larga
+            // 3. Pista de Corrida Larga
             let trackTopWidth = 40;
-            let trackBaseWidth = 520; // Base alargada para dar mais espaço
+            let trackBaseWidth = 520; 
 
             ctx.fillStyle = env.trackColor;
             ctx.beginPath();
@@ -283,9 +365,9 @@
             ctx.closePath();
             ctx.fill();
 
-            // Bordas da pista
-            ctx.strokeStyle = env.lightsOn ? '#f1c40f' : '#fff';
-            ctx.lineWidth = 4;
+            // Bordas laterais da pista (com listras decorativas simuladas)
+            ctx.strokeStyle = env.stripeColor;
+            ctx.lineWidth = 5;
             ctx.beginPath();
             ctx.moveTo((canvas.width - trackTopWidth) / 2, horizonY);
             ctx.lineTo((canvas.width - trackBaseWidth) / 2, canvas.height);
@@ -296,40 +378,61 @@
             ctx.lineTo((canvas.width + trackBaseWidth) / 2, canvas.height);
             ctx.stroke();
 
-            // 4. Inimigos ordenados por profundidade
+            // 4. Inimigos ordenados por profundidade (Z)
             enemies.sort((a, b) => a.z - b.z).forEach(en => {
                 let currentTrackWidth = trackTopWidth + en.z * (trackBaseWidth - trackTopWidth);
                 let enY = horizonY + en.z * (canvas.height - horizonY);
                 let enX = (canvas.width / 2) + en.offset * (currentTrackWidth / 2);
-                let enSize = 12 + en.z * 45;
+                let enSizeW = 14 + en.z * 50;
+                let enSizeH = 10 + en.z * 40;
 
-                desenharInimigoAtari(enX - enSize/2, enY - enSize/2, enSize, enSize * 0.6, en.color, env.lightsOn);
+                desenharInimigo(enX, enY, enSizeW, enSizeH, en.color, en.roofColor, env.lightsOn);
             });
 
-            // Efeito de Neblina
+            // Efeito de Neblina Atmosférica
             if (env.fog) {
-                ctx.fillStyle = 'rgba(210, 215, 220, 0.45)';
-                ctx.fillRect(0, horizonY - 20, canvas.width, canvas.height - horizonY + 20);
+                let fogGrad = ctx.createLinearGradient(0, horizonY, 0, canvas.height);
+                fogGrad.addColorStop(0, 'rgba(180, 190, 200, 0.6)');
+                fogGrad.addColorStop(1, 'rgba(180, 190, 200, 0.2)');
+                ctx.fillStyle = fogGrad;
+                ctx.fillRect(0, horizonY, canvas.width, canvas.height - horizonY);
             }
 
-            // 5. Desenhar o Carro do Jogador
-            desenharMeuCarro(playerX, playerY, playerWidth, playerHeight, '#2f3640', env.lightsOn);
+            // 5. Carro do Jogador
+            desenharMeuCarro(playerX, playerY, playerWidth, playerHeight, env.lightsOn);
 
-            // 6. Placar e Informações da Fase
-            ctx.fillStyle = '#fff';
-            ctx.font = '18px Courier New';
-            ctx.fillText(`PONTOS: ${score}`, 20, 35);
-            ctx.fillText(`FASE: ${env.name}`, 20, 65);
+            // 6. Placar e HUD Superior
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillRect(10, 10, 280, 70);
+            ctx.strokeStyle = '#555';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(10, 10, 280, 70);
 
+            ctx.fillStyle = '#f1c40f';
+            ctx.font = 'bold 16px Courier New';
+            ctx.fillText(`PONTOS: ${score}`, 25, 35);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(`FASE: ${env.name}`, 25, 60);
+
+            // Tela de Game Over
             if (gameOver) {
                 ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
                 ctx.fillStyle = '#e74c3c';
-                ctx.font = '35px Courier New';
-                ctx.fillText("FIM DE JOGO", canvas.width / 2 - 115, canvas.height / 2 - 20);
+                ctx.font = 'bold 38px Courier New';
+                ctx.shadowColor = '#c0392b';
+                ctx.shadowBlur = 15;
+                ctx.fillText("FIM DE JOGO", canvas.width / 2 - 125, canvas.height / 2 - 30);
+                ctx.shadowBlur = 0;
+
                 ctx.fillStyle = '#fff';
-                ctx.font = '18px Courier New';
-                ctx.fillText("Toque na tela ou ESPAÇO para reiniciar", canvas.width / 2 - 190, canvas.height / 2 + 25);
+                ctx.font = '16px Courier New';
+                ctx.fillText(`Pontuação Final: ${score}`, canvas.width / 2 - 85, canvas.height / 2 + 15);
+                
+                ctx.fillStyle = '#f1c40f';
+                ctx.font = '15px Courier New';
+                ctx.fillText("Toque na tela ou ESPAÇO para reiniciar", canvas.width / 2 - 170, canvas.height / 2 + 60);
             }
         }
 
