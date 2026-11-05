@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Enduro - Estrada Larga</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #0d0d0d;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        h1 {
+            margin: 2px;
+            font-size: 1.1rem;
+            color: #f1c40f;
+            text-shadow: 2px 2px #c0392b;
+        }
+
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 25px rgba(0,0,0,0.9);
+            border: 4px solid #333;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 95vw;
+            max-width: 650px;
+            height: auto;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        .controls-mobile {
+            display: flex;
+            justify-content: space-between;
+            width: 95vw;
+            max-width: 650px;
+            margin-top: 10px;
+            padding: 0 10px;
+            box-sizing: border-box;
+        }
+
+        .btn {
+            background-color: #222;
+            color: #fff;
+            border: 2px solid #555;
+            font-size: 1.2rem;
+            padding: 15px 30px;
+            border-radius: 8px;
+            user-select: none;
+            cursor: pointer;
+            outline: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        .btn:active {
+            background-color: #f1c40f;
+            color: #000;
+        }
+
+        .info-pc {
+            margin-top: 5px;
+            font-size: 0.75rem;
+            color: #777;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>ENDURO - SPEEDWAY</h1>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="700" height="650"></canvas>
+    </div>
+
+    <div class="controls-mobile">
+        <button class="btn" id="btnLeft">◀ ESQUERDA</button>
+        <button class="btn" id="btnRight">DIREITA ▶</button>
+    </div>
+    
+    <div class="info-pc">Use as setas no PC ou toque nos botões no telemóvel.</div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Variáveis do Jogador
+        const playerWidth = 46;
+        const playerHeight = 65;
+        let playerX = canvas.width / 2 - playerWidth / 2;
+        const playerY = canvas.height - 110;
+
+        let score = 0;
+        let gameOver = false;
+        let keys = {};
+
+        // Inimigos
+        let enemies = [];
+        let spawnTimer = 0;
+
+        // Controles de Teclado (PC)
+        window.addEventListener('keydown', e => keys[e.key] = true);
+        window.addEventListener('keyup', e => keys[e.key] = false);
+
+        // Controles de Toque (Telemóvel)
+        const btnLeft = document.getElementById('btnLeft');
+        const btnRight = document.getElementById('btnRight');
+
+        btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowLeft'] = true; });
+        btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowLeft'] = false; });
+        btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowRight'] = true; });
+        btnRight.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowRight'] = false; });
+
+        btnLeft.addEventListener('mousedown', () => keys['ArrowLeft'] = true);
+        btnLeft.addEventListener('mouseup', () => keys['ArrowLeft'] = false);
+        btnRight.addEventListener('mousedown', () => keys['ArrowRight'] = true);
+        btnRight.addEventListener('mouseup', () => keys['ArrowRight'] = false);
+
+        function resetGame() {
+            score = 0;
+            enemies = [];
+            gameOver = false;
+            playerX = canvas.width / 2 - playerWidth / 2;
+            loop();
+        }
+
+        function spawnEnemy() {
+            enemies.push({
+                z: 0, 
+                offset: (Math.random() - 0.5) * 0.8, // Amplitude ajustada para a pista mais larga
+                color: ['#ff3838', '#ff9f1a', '#32ff7e', '#18dcff', '#cd84f1'][Math.floor(Math.random() * 5)]
+            });
+        }
+
+        // Sistema de Fases e Horários
+        function getEnvironment() {
+            let cycle = Math.floor(score / 150) % 4; // Dia, Pôr do Sol, Noite, Neblina
+            
+            let velocidadeBase = 0.004 + (Math.floor(score / 250) * 0.0008);
+            let velocidadeAtual = Math.min(velocidadeBase, 0.012); 
+
+            if (cycle === 0) {
+                return { name: "DIA", skyColor: "#5dade2", groundColor: "#27ae60", trackColor: "#7f8c8d", lightsOn: false, fog: false, speed: velocidadeAtual };
+            } else if (cycle === 1) {
+                return { name: "PÔR DO SOL", skyColor: "#d35400", groundColor: "#641e16", trackColor: "#566573", lightsOn: false, fog: false, speed: velocidadeAtual };
+            } else if (cycle === 2) {
+                return { name: "NOITE", skyColor: "#0b0c10", groundColor: "#1b2631", trackColor: "#17202a", lightsOn: true, fog: false, speed: velocidadeAtual };
+            } else {
+                return { name: "NEBLINA", skyColor: "#85929e", groundColor: "#566573", trackColor: "#4a5568", lightsOn: true, fog: true, speed: velocidadeAtual };
+            }
+        }
+
+        function update() {
+            if (gameOver) return;
+
+            let env = getEnvironment();
+
+            // Limites ajustados para a estrada mais larga
+            if (keys['ArrowLeft'] && playerX > 90) {
+                playerX -= 7;
+            }
+            if (keys['ArrowRight'] && playerX < canvas.width - playerWidth - 90) {
+                playerX += 7;
+            }
+
+            let tempoGeracao = Math.max(60, 110 - Math.floor(score / 30));
+            spawnTimer++;
+            if (spawnTimer > tempoGeracao) {
+                spawnEnemy();
+                spawnTimer = 0;
+            }
+
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                let en = enemies[i];
+                en.z += env.speed; 
+
+                let trackTopWidth = 40;
+                let trackBaseWidth = 520; // Estrada consideravelmente mais larga na base
+                let currentTrackWidth = trackTopWidth + en.z * (trackBaseWidth - trackTopWidth);
+                
+                let horizonY = 220;
+                let enY = horizonY + en.z * (canvas.height - horizonY);
+                let enX = (canvas.width / 2) + en.offset * (currentTrackWidth / 2);
+
+                if (en.z > 0.82 && en.z < 0.98) {
+                    if (Math.abs(enX - (playerX + playerWidth/2)) < 25) {
+                        gameOver = true;
+                    }
+                }
+
+                if (en.z > 1.05) {
+                    enemies.splice(i, 1);
+                    score += 10;
+                }
+            }
+        }
+
+        // Desenhar o Carro do Jogador
+        function desenharMeuCarro(x, y, largura, altura, cor, luzesAcessas) {
+            ctx.fillStyle = 'rgba(0,0,0,0.4)';
+            ctx.beginPath();
+            ctx.ellipse(x + largura/2, y + altura - 4, largura/2.2, 5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#111';
+            ctx.fillRect(x - 3, y + altura * 0.4, 6, altura * 0.45);
+            ctx.fillRect(x + largura - 3, y + altura * 0.4, 6, altura * 0.45);
+
+            ctx.fillStyle = cor;
+            ctx.beginPath();
+            ctx.roundRect(x, y + 8, largura, altura - 12, [10, 10, 5, 5]);
+            ctx.fill();
+
+            ctx.fillStyle = '#1b1b1b';
+            ctx.fillRect(x - 2, y + 12, largura + 4, 4);
+            ctx.fillStyle = cor;
+            ctx.fillRect(x + 3, y + 10, largura - 6, 3);
+
+            ctx.fillStyle = '#151515';
+            ctx.beginPath();
+            ctx.roundRect(x + 7, y + 20, largura - 14, altura - 38, 3);
+            ctx.fill();
+
+            ctx.fillStyle = '#ff4757';
+            ctx.shadowColor = '#ff6b81';
+            ctx.shadowBlur = 6;
+            ctx.fillRect(x + 3, y + 14, largura - 6, 4);
+            ctx.shadowBlur = 0; 
+
+            ctx.fillStyle = '#718093';
+            ctx.fillRect(x + 10, y + altura - 6, 4, 4);
+            ctx.fillRect(x + largura - 14, y + altura - 6, 4, 4);
+        }
+
+        // Inimigos em estilo Atari clássico
+        function desenharInimigoAtari(x, y, largura, altura, cor, luzesAcessas) {
+            const pixelSize = Math.max(2, Math.floor(largura / 12));
+            
+            ctx.fillStyle = cor;
+            ctx.fillRect(x + pixelSize, y, largura - pixelSize * 2, altura);
+            ctx.fillRect(x, y + pixelSize * 2, largura, altura - pixelSize * 2);
+
+            ctx.fillStyle = luzesAcessas ? '#ffff00' : '#ffffff';
+            ctx.fillRect(x + pixelSize, y, pixelSize * 2, pixelSize * 2);
+            ctx.fillRect(x + largura - pixelSize * 3, y, pixelSize * 2, pixelSize * 2);
+        }
+
+        function draw() {
+            let env = getEnvironment();
+            let horizonY = 220;
+
+            // 1. Céu
+            ctx.fillStyle = env.skyColor;
+            ctx.fillRect(0, 0, canvas.width, horizonY);
+
+            // 2. Grama / Terreno
+            ctx.fillStyle = env.groundColor;
+            ctx.fillRect(0, horizonY, canvas.width, canvas.height - horizonY);
+
+            // 3. Pista Larga
+            let trackTopWidth = 40;
+            let trackBaseWidth = 520; // Base alargada para dar mais espaço
+
+            ctx.fillStyle = env.trackColor;
+            ctx.beginPath();
+            ctx.moveTo((canvas.width - trackTopWidth) / 2, horizonY);
+            ctx.lineTo((canvas.width + trackTopWidth) / 2, horizonY);
+            ctx.lineTo((canvas.width + trackBaseWidth) / 2, canvas.height);
+            ctx.lineTo((canvas.width - trackBaseWidth) / 2, canvas.height);
+            ctx.closePath();
+            ctx.fill();
+
+            // Bordas da pista
+            ctx.strokeStyle = env.lightsOn ? '#f1c40f' : '#fff';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo((canvas.width - trackTopWidth) / 2, horizonY);
+            ctx.lineTo((canvas.width - trackBaseWidth) / 2, canvas.height);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo((canvas.width + trackTopWidth) / 2, horizonY);
+            ctx.lineTo((canvas.width + trackBaseWidth) / 2, canvas.height);
+            ctx.stroke();
+
+            // 4. Inimigos ordenados por profundidade
+            enemies.sort((a, b) => a.z - b.z).forEach(en => {
+                let currentTrackWidth = trackTopWidth + en.z * (trackBaseWidth - trackTopWidth);
+                let enY = horizonY + en.z * (canvas.height - horizonY);
+                let enX = (canvas.width / 2) + en.offset * (currentTrackWidth / 2);
+                let enSize = 12 + en.z * 45;
+
+                desenharInimigoAtari(enX - enSize/2, enY - enSize/2, enSize, enSize * 0.6, en.color, env.lightsOn);
+            });
+
+            // Efeito de Neblina
+            if (env.fog) {
+                ctx.fillStyle = 'rgba(210, 215, 220, 0.45)';
+                ctx.fillRect(0, horizonY - 20, canvas.width, canvas.height - horizonY + 20);
+            }
+
+            // 5. Desenhar o Carro do Jogador
+            desenharMeuCarro(playerX, playerY, playerWidth, playerHeight, '#2f3640', env.lightsOn);
+
+            // 6. Placar e Informações da Fase
+            ctx.fillStyle = '#fff';
+            ctx.font = '18px Courier New';
+            ctx.fillText(`PONTOS: ${score}`, 20, 35);
+            ctx.fillText(`FASE: ${env.name}`, 20, 65);
+
+            if (gameOver) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#e74c3c';
+                ctx.font = '35px Courier New';
+                ctx.fillText("FIM DE JOGO", canvas.width / 2 - 115, canvas.height / 2 - 20);
+                ctx.fillStyle = '#fff';
+                ctx.font = '18px Courier New';
+                ctx.fillText("Toque na tela ou ESPAÇO para reiniciar", canvas.width / 2 - 190, canvas.height / 2 + 25);
+            }
+        }
+
+        function loop() {
+            update();
+            draw();
+            if (!gameOver) {
+                requestAnimationFrame(loop);
+            }
+        }
+
+        window.addEventListener('keydown', e => {
+            if (e.code === 'Space' && gameOver) {
+                resetGame();
+            }
+        });
+
+        canvas.addEventListener('click', () => {
+            if (gameOver) {
+                resetGame();
+            }
+        });
+
+        loop();
+    </script>
+</body>
+</html>
