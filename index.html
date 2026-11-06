@@ -3,69 +3,82 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="stylesheet" href="style.css">
 <title>MARCELO RACE - Enduro</title>
 
 <style>
-* { box-sizing:border-box; }
+* {
+    box-sizing: border-box;
+}
+
 body {
-    margin:0;
-    background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
-    color:white;
-    font-family:'Courier New',monospace;
-    display:flex;
-    flex-direction:column;
-    align-items:center;
-    justify-content:center;
-    min-height:100vh;
-    overflow:hidden;
-    touch-action:none;
+    margin: 0;
+    background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+    color: white;
+    font-family: 'Courier New', monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    overflow: hidden;
+    touch-action: none;
 }
+
 h1 {
-    margin:5px;
-    font-size:1.3rem;
-    color:#f1c40f;
-    text-shadow:0 0 10px #f39c12;
-    letter-spacing:2px;
+    margin: 5px;
+    font-size: 1.3rem;
+    color: #f1c40f;
+    text-shadow: 0 0 10px #f39c12;
+    letter-spacing: 2px;
 }
+
 #game-container {
-    border:4px solid #555;
-    border-radius:10px;
-    overflow:hidden;
-    box-shadow:0 10px 35px #000;
-    background:#000;
+    border: 4px solid #555;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 10px 35px #000;
+    background: #000;
 }
+
 canvas {
-    display:block;
-    width:95vw;
-    max-width:650px;
-    height:auto;
-    image-rendering:pixelated;
+    display: block;
+    width: 95vw;
+    max-width: 650px;
+    height: auto;
+    image-rendering: pixelated;
 }
+
 .controls-mobile {
-    display:flex;
-    justify-content:space-between;
-    width:95vw;
-    max-width:650px;
-    margin-top:12px;
+    display: flex;
+    justify-content: space-between;
+    width: 95vw;
+    max-width: 650px;
+    margin-top: 12px;
 }
+
 .btn {
-    background:linear-gradient(#333,#111);
-    color:white;
-    border:2px solid #666;
-    font-size:1rem;
-    font-weight:bold;
-    padding:16px 25px;
-    border-radius:10px;
-    user-select:none;
+    background: linear-gradient(#333,#111);
+    color: white;
+    border: 2px solid #666;
+    font-size: 1rem;
+    font-weight: bold;
+    padding: 16px 25px;
+    border-radius: 10px;
+    user-select: none;
+    touch-action: none;
 }
-.btn:active,.btn.pressed {
-    background:#f1c40f;
-    color:black;
+
+.btn:active,
+.btn.pressed {
+    background: #f1c40f;
+    color: black;
 }
+
 .info-pc {
-    margin-top:8px;
-    font-size:12px;
-    color:#aaa;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #aaa;
 }
 </style>
 </head>
@@ -74,19 +87,29 @@ canvas {
 
 <h1>MARCELO RACE</h1>
 
-<div id="game-container">
-<canvas id="gameCanvas" width="700" height="650"></canvas>
-</div>
+<div class="game-container">
+    <h1>MARCELO RACE</h1>
 
-<div class="controls-mobile">
-<button class="btn" id="btnLeft">◀ ESQUERDA</button>
-<button class="btn" id="btnRight">DIREITA ▶</button>
-</div>
+    <div class="game-info">
+        <div>Pontos: <span id="score">0</span></div>
+        <div>Velocidade: <span id="speed">0</span></div>
+        <div>Nível: <span id="level">1</span></div>
+    </div>
 
-<div class="info-pc">
-Use as setas do teclado ou os botões do celular
-</div>
+    <canvas id="gameCanvas" width="700" height="650"></canvas>
 
+    <div class="controls">
+        <button id="btnLeft">◀</button>
+        <button id="btnRight">▶</button>
+    </div>
+
+    <button id="restartButton">REINICIAR</button>
+
+    <p class="instructions">
+        Use as setas do teclado ou os botões para dirigir.
+    </p>
+</div>
+<script src="game.js"></script>
 <script>
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -99,7 +122,7 @@ const playerWidth = 48;
 const playerHeight = 70;
 const playerY = H - 110;
 
-let playerX = W/2-playerWidth/2;
+let playerX = W / 2 - playerWidth / 2;
 
 let score = 0;
 let gameOver = false;
@@ -115,651 +138,72 @@ let lastTime = 0;
 const roadTopWidth = 46;
 const roadBottomWidth = 540;
 
+// =====================================
 // CONTROLES
+// =====================================
 
-window.addEventListener("keydown",e=>{
-    keys[e.key]=true;
-    if(["ArrowLeft","ArrowRight"," "].includes(e.key))
+window.addEventListener("keydown", e => {
+    keys[e.key] = true;
+
+    if (["ArrowLeft", "ArrowRight", " "].includes(e.key)) {
         e.preventDefault();
+    }
+
+    if (e.code === "Space" && gameOver) {
+        resetGame();
+    }
 });
 
-window.addEventListener("keyup",e=>{
-    keys[e.key]=false;
+window.addEventListener("keyup", e => {
+    keys[e.key] = false;
 });
 
-function setupButton(button,key) {
-    button.addEventListener("pointerdown",e=>{
+function setupButton(button, key) {
+    button.addEventListener("pointerdown", e => {
         e.preventDefault();
-        keys[key]=true;
+        keys[key] = true;
         button.classList.add("pressed");
     });
 
     function release(e) {
         e.preventDefault();
-        keys[key]=false;
+        keys[key] = false;
         button.classList.remove("pressed");
     }
 
-    button.addEventListener("pointerup",release);
-    button.addEventListener("pointerleave",release);
-    button.addEventListener("pointercancel",release);
+    button.addEventListener("pointerup", release);
+    button.addEventListener("pointerleave", release);
+    button.addEventListener("pointercancel", release);
 }
 
-setupButton(document.getElementById("btnLeft"),"ArrowLeft");
-setupButton(document.getElementById("btnRight"),"ArrowRight");
+setupButton(document.getElementById("btnLeft"), "ArrowLeft");
+setupButton(document.getElementById("btnRight"), "ArrowRight");
 
-// SISTEMA DE CURVAS ENDuro
+// =====================================
+// SISTEMA DE CURVAS ESTILO ENDURO
+// =====================================
 
 function curveAt(distance) {
 
-    // Curvas longas
-    let a = Math.sin(distance*0.00072)*0.58;
+    // Curvas longas e fortes
+    let longCurve =
+        Math.sin(distance * 0.00048) * 0.78;
 
     // Curvas intermediárias
-    let b = Math.sin(distance*0.00031+1.4)*0.34;
+    let mediumCurve =
+        Math.sin(distance * 0.00105 + 1.7) * 0.38;
+
+    // Curvas rápidas em S
+    let sCurve =
+        Math.sin(distance * 0.0021 + 0.6) * 0.22;
 
     // Pequenas mudanças de direção
-    let c = Math.sin(distance*0.00128+0.8)*0.13;
+    let detailCurve =
+        Math.sin(distance * 0.00019 + 2.4) * 0.20;
 
-    return a+b+c;
+    return longCurve + mediumCurve + sCurve + detailCurve;
 }
 
-// POSIÇÃO DA ESTRADA EM CADA PROFUNDIDADE
-
-function roadAt(z) {
-
-    let lookAhead = (1-z)*1250;
-
-    let curve = curveAt(roadDistance+lookAhead);
-
-    let center = W/2 + curve*220*(0.35+z*0.65);
-
-    let width = roadTopWidth+
-        z*(roadBottomWidth-roadTopWidth);
-
-    return {
-        center:center,
-        width:width,
-        left:center-width/2,
-        right:center+width/2
-    };
-}
-
-// AMBIENTES
-
-function getEnvironment() {
-
-    let cycle = Math.floor(score/150)%4;
-
-    let baseSpeed = 0.0045+
-        Math.floor(score/200)*0.0009;
-
-    let speed = Math.min(baseSpeed,0.013);
-
-    if(cycle===0) {
-        return {
-            name:"DIA ENSOLARADO",
-            skyGrad:["#2980b9","#6dd5ed"],
-            groundColor:"#27ae60",
-            trackColor:"#34495e",
-            stripeColor:"#f1c40f",
-            lightsOn:false,
-            fog:false,
-            speed
-        };
-    }
-
-    if(cycle===1) {
-        return {
-            name:"PÔR DO SOL",
-            skyGrad:["#c0392b","#d35400","#f39c12"],
-            groundColor:"#4a154b",
-            trackColor:"#2c3e50",
-            stripeColor:"#e74c3c",
-            lightsOn:false,
-            fog:false,
-            speed
-        };
-    }
-
-    if(cycle===2) {
-        return {
-            name:"NOITE PROFUNDA",
-            skyGrad:["#050505","#0f2027"],
-            groundColor:"#0b131d",
-            trackColor:"#111822",
-            stripeColor:"#3498db",
-            lightsOn:true,
-            fog:false,
-            speed
-        };
-    }
-
-    return {
-        name:"NEBLINA DENSA",
-        skyGrad:["#57606f","#747d8c"],
-        groundColor:"#4b6584",
-        trackColor:"#3d3d3d",
-        stripeColor:"#ffffff",
-        lightsOn:true,
-        fog:true,
-        speed
-    };
-}
-
-// REINICIAR
-
-function resetGame() {
-    score=0;
-    enemies=[];
-    spawnTimer=0;
-    gameOver=false;
-    roadDistance=0;
-    playerDrift=0;
-    playerX=W/2-playerWidth/2;
-    lastTime=0;
-    loop();
-}
-
-// INIMIGOS
-
-function spawnEnemy() {
-
-    const types=[
-        {color:"#e74c3c",roof:"#c0392b"},
-        {color:"#3498db",roof:"#2980b9"},
-        {color:"#2ecc71",roof:"#27ae60"},
-        {color:"#9b59b6",roof:"#8e44ad"},
-        {color:"#e67e22",roof:"#d35400"}
-    ];
-
-    let type=types[
-        Math.floor(Math.random()*types.length)
-    ];
-
-    enemies.push({
-        z:0,
-        offset:(Math.random()-0.5)*0.72,
-        color:type.color,
-        roofColor:type.roof
-    });
-}
-
-// ATUALIZAÇÃO DO JOGO
-
-function update(dt) {
-
-    if(gameOver) return;
-
-    let env=getEnvironment();
-
-    let frame=Math.min(dt/16.667,2.2);
-
-    roadDistance+=env.speed*1050*frame;
-
-    // FORÇA DA CURVA
-
-    let currentBend=curveAt(roadDistance+90);
-
-    let steering=
-        (keys.ArrowLeft?-1:0)+
-        (keys.ArrowRight?1:0);
-
-    playerDrift+=currentBend*0.42*0.018*frame;
-
-    playerDrift*=Math.pow(0.975,frame);
-
-    // MOVIMENTO DO CARRO
-
-    playerX+=steering*7.8*frame-playerDrift;
-
-    // LIMITES DA ESTRADA
-
-    let road=roadAt(0.985);
-
-    let minX=road.left+12;
-    let maxX=road.right-playerWidth-12;
-
-    playerX=Math.max(
-        minX-20,
-        Math.min(maxX+20,playerX)
-    );
-
-    // GERAR TRÁFEGO
-
-    let tempoGeracao=Math.max(
-        55,
-        105-Math.floor(score/25)
-    );
-
-    spawnTimer+=frame;
-
-    if(spawnTimer>tempoGeracao) {
-        spawnEnemy();
-        spawnTimer=0;
-    }
-
-    // MOVIMENTO DOS INIMIGOS
-
-    for(let i=enemies.length-1;i>=0;i--) {
-
-        let en=enemies[i];
-
-        en.z+=env.speed*frame;
-
-        let road=roadAt(en.z);
-
-        let enX=road.center+
-            en.offset*road.width*0.42;
-
-        let playerCenter=playerX+playerWidth/2;
-
-        // COLISÃO
-
-        if(
-            en.z>0.84 &&
-            en.z<0.98 &&
-            Math.abs(enX-playerCenter)<29
-        ) {
-            gameOver=true;
-        }
-
-        if(en.z>1.05) {
-            enemies.splice(i,1);
-            score+=10;
-        }
-    }
-}
-
-// DESENHO DA ESTRADA
-
-function shade(hex,amount) {
-
-    let n=parseInt(hex.slice(1),16);
-
-    let r=Math.max(0,Math.min(255,(n>>16)+amount));
-    let g=Math.max(0,Math.min(255,((n>>8)&255)+amount));
-    let b=Math.max(0,Math.min(255,(n&255)+amount));
-
-    return "#"+(
-        1<<24|r<<16|g<<8|b
-    ).toString(16).slice(1);
-}
-
-function drawRoad(env) {
-
-    const bands=90;
-
-    for(let i=0;i<bands;i++) {
-
-        let z1=i/bands;
-        let z2=(i+1)/bands;
-
-        let y1=horizonY+z1*(H-horizonY);
-        let y2=horizonY+z2*(H-horizonY);
-
-        let r1=roadAt(z1);
-        let r2=roadAt(z2);
-
-        let alternate=
-            Math.floor(roadDistance*0.035+i/3)%2===0;
-
-        // GRAMA
-
-        ctx.fillStyle=alternate
-            ?env.groundColor
-            :shade(env.groundColor,-10);
-
-        ctx.fillRect(0,y1,W,y2-y1+1);
-
-        // BORDAS DA ESTRADA
-
-        let edge1=2+z1*15;
-        let edge2=2+z2*15;
-
-        ctx.fillStyle=alternate?"#ffffff":"#e74c3c";
-
-        // LADO ESQUERDO
-
-        ctx.beginPath();
-        ctx.moveTo(r1.left-edge1,y1);
-        ctx.lineTo(r1.left,y1);
-        ctx.lineTo(r2.left,y2);
-        ctx.lineTo(r2.left-edge2,y2);
-        ctx.closePath();
-        ctx.fill();
-
-        // LADO DIREITO
-
-        ctx.beginPath();
-        ctx.moveTo(r1.right,y1);
-        ctx.lineTo(r1.right+edge1,y1);
-        ctx.lineTo(r2.right+edge2,y2);
-        ctx.lineTo(r2.right,y2);
-        ctx.closePath();
-        ctx.fill();
-
-        // ASFALTO
-
-        ctx.fillStyle=env.trackColor;
-
-        ctx.beginPath();
-        ctx.moveTo(r1.left,y1);
-        ctx.lineTo(r1.right,y1);
-        ctx.lineTo(r2.right,y2);
-        ctx.lineTo(r2.left,y2);
-        ctx.closePath();
-        ctx.fill();
-
-        // LINHA CENTRAL TRACEJADA
-
-        if(Math.floor(roadDistance*0.055+i/5)%2===0) {
-
-            ctx.strokeStyle="rgba(255,255,255,0.58)";
-            ctx.lineWidth=1+z1*3;
-
-            ctx.beginPath();
-            ctx.moveTo(r1.center,y1);
-            ctx.lineTo(r2.center,y2);
-            ctx.stroke();
-        }
-    }
-}
-
-// CARRO DO JOGADOR
-
-function desenharMeuCarro(x,y,w,h,lights) {
-
-    // SOMBRA
-
-    ctx.fillStyle="rgba(0,0,0,0.5)";
-    ctx.beginPath();
-    ctx.ellipse(x+w/2,y+h-2,w/2,6,0,0,Math.PI*2);
-    ctx.fill();
-
-    // PNEUS
-
-    ctx.fillStyle="#0f0f0f";
-    ctx.fillRect(x-4,y+h*.35,5,h*.45);
-    ctx.fillRect(x+w-1,y+h*.35,5,h*.45);
-
-    // CARROCERIA
-
-    let grad=ctx.createLinearGradient(x,y,x+w,y);
-
-    grad.addColorStop(0,"#1e272e");
-    grad.addColorStop(0.5,"#485460");
-    grad.addColorStop(1,"#1e272e");
-
-    ctx.fillStyle=grad;
-    ctx.beginPath();
-    ctx.roundRect(x,y+6,w,h-10,[12,12,6,6]);
-    ctx.fill();
-
-    // VIDRO
-
-    ctx.fillStyle="#0b0e14";
-    ctx.beginPath();
-    ctx.roundRect(x+6,y+22,w-12,h-42,4);
-    ctx.fill();
-
-    // PARA-BRISA
-
-    ctx.fillStyle="#00d2d3";
-    ctx.shadowColor="#00d2d3";
-    ctx.shadowBlur=8;
-    ctx.fillRect(x+8,y+14,w-16,5);
-    ctx.shadowBlur=0;
-
-    // LANTERNAS
-
-    ctx.fillStyle="#ff3838";
-    ctx.shadowColor="#ff4757";
-    ctx.shadowBlur=10;
-
-    ctx.fillRect(x+4,y+8,10,4);
-    ctx.fillRect(x+w-14,y+8,10,4);
-
-    ctx.shadowBlur=0;
-
-    if(lights) {
-        ctx.fillStyle="#f1c40f";
-        ctx.shadowColor="#f1c40f";
-        ctx.shadowBlur=12;
-        ctx.fillRect(x+4,y+h-4,8,4);
-        ctx.fillRect(x+w-12,y+h-4,8,4);
-        ctx.shadowBlur=0;
-    }
-}
-
-// CARROS INIMIGOS
-
-function desenharInimigo(x,y,w,h,color,roof,lights) {
-
-    ctx.fillStyle="rgba(0,0,0,0.3)";
-    ctx.beginPath();
-    ctx.ellipse(x,y+h/2,w/2,h/6,0,0,Math.PI*2);
-    ctx.fill();
-
-    ctx.fillStyle=color;
-    ctx.beginPath();
-    ctx.roundRect(x-w/2,y-h/2,w,h,6);
-    ctx.fill();
-
-    ctx.fillStyle=roof;
-    ctx.beginPath();
-    ctx.roundRect(x-w*.35,y-h*.25,w*.7,h*.5,3);
-    ctx.fill();
-
-    if(lights) {
-        ctx.fillStyle="#ffff00";
-        ctx.shadowColor="#ffff00";
-        ctx.shadowBlur=6;
-        ctx.fillRect(x-w*.35,y+h*.3,4,3);
-        ctx.fillRect(x+w*.35-4,y+h*.3,4,3);
-        ctx.shadowBlur=0;
-    } else {
-        ctx.fillStyle="#fff";
-        ctx.fillRect(x-w*.3,y-h*.4,w*.6,2);
-    }
-}
-
-// DESENHO PRINCIPAL
-
-function draw() {
-
-    let env=getEnvironment();
-
-    // CÉU
-
-    let sky=ctx.createLinearGradient(0,0,0,horizonY);
-
-    env.skyGrad.forEach((c,i)=>{
-        sky.addColorStop(
-            i/(env.skyGrad.length-1),c
-        );
-    });
-
-    ctx.fillStyle=sky;
-    ctx.fillRect(0,0,W,horizonY);
-
-    // SOL
-
-    if(env.name==="DIA ENSOLARADO") {
-
-        ctx.fillStyle="#f1c40f";
-        ctx.shadowColor="#f39c12";
-        ctx.shadowBlur=25;
-
-        ctx.beginPath();
-        ctx.arc(520,80,25,0,Math.PI*2);
-        ctx.fill();
-
-        ctx.shadowBlur=0;
-    }
-
-    if(env.name==="PÔR DO SOL") {
-
-        ctx.fillStyle="#e67e22";
-        ctx.shadowColor="#d35400";
-        ctx.shadowBlur=30;
-
-        ctx.beginPath();
-        ctx.arc(180,150,30,0,Math.PI*2);
-        ctx.fill();
-
-        ctx.shadowBlur=0;
-    }
-
-    // ESTRADA COM CURVAS
-
-    drawRoad(env);
-
-    // INIMIGOS
-
-    enemies.sort((a,b)=>a.z-b.z).forEach(en=>{
-
-        let road=roadAt(en.z);
-
-        let y=horizonY+en.z*(H-horizonY);
-
-        let w=14+en.z*50;
-        let h=10+en.z*40;
-
-        let x=road.center+
-            en.offset*road.width*0.42;
-
-        desenharInimigo(
-            x,y,w,h,
-            en.color,en.roofColor,
-            env.lightsOn
-        );
-    });
-
-    // NEBLINA
-
-    if(env.fog) {
-
-        let fog=ctx.createLinearGradient(
-            0,horizonY,0,H
-        );
-
-        fog.addColorStop(0,"rgba(180,190,200,.6)");
-        fog.addColorStop(1,"rgba(180,190,200,.2)");
-
-        ctx.fillStyle=fog;
-        ctx.fillRect(0,horizonY,W,H-horizonY);
-    }
-
-    // JOGADOR
-
-    desenharMeuCarro(
-        playerX,playerY,
-        playerWidth,playerHeight,
-        env.lightsOn
-    );
-
-    // PAINEL
-
-    ctx.fillStyle="rgba(0,0,0,.45)";
-    ctx.fillRect(10,10,300,72);
-
-    ctx.strokeStyle="#777";
-    ctx.lineWidth=2;
-    ctx.strokeRect(10,10,300,72);
-
-    ctx.fillStyle="#f1c40f";
-    ctx.font="bold 16px Courier New";
-    ctx.fillText("PONTOS: "+score,25,35);
-
-    ctx.fillStyle="#fff";
-    ctx.fillText("FASE: "+env.name,25,60);
-
-    let bend=curveAt(roadDistance);
-
-    ctx.font="12px Courier New";
-
-    ctx.fillText(
-        "CURVA: "+
-        (bend<-.16?"ESQUERDA":
-        bend>.16?"DIREITA":"RETA"),
-        25,76
-    );
-
-    // GAME OVER
-
-    if(gameOver) {
-
-        ctx.fillStyle="rgba(0,0,0,.85)";
-        ctx.fillRect(0,0,W,H);
-
-        ctx.textAlign="center";
-
-        ctx.fillStyle="#e74c3c";
-        ctx.font="bold 38px Courier New";
-        ctx.shadowColor="#c0392b";
-        ctx.shadowBlur=15;
-
-        ctx.fillText("FIM DE JOGO",W/2,H/2-30);
-
-        ctx.shadowBlur=0;
-
-        ctx.fillStyle="#fff";
-        ctx.font="16px Courier New";
-
-        ctx.fillText(
-            "Pontuação Final: "+score,
-            W/2,H/2+15
-        );
-
-        ctx.fillStyle="#f1c40f";
-        ctx.font="15px Courier New";
-
-        ctx.fillText(
-            "Toque na tela ou ESPAÇO para reiniciar",
-            W/2,H/2+60
-        );
-
-        ctx.textAlign="left";
-    }
-}
-
-// LOOP
-
-function loop(timestamp=0) {
-
-    let dt=lastTime
-        ?timestamp-lastTime
-        :16.667;
-
-    lastTime=timestamp;
-
-    update(dt);
-    draw();
-
-    if(!gameOver) {
-        requestAnimationFrame(loop);
-    }
-}
-
-// REINICIAR
-
-window.addEventListener("keydown",e=>{
-    if(e.code==="Space" && gameOver) {
-        resetGame();
-    }
-});
-
-canvas.addEventListener("click",()=>{
-    if(gameOver) {
-        resetGame();
-    }
-});
-
-// INICIAR
-
-loop();
-
-</script>
-</body>
-</html>
+// =====================================
+// SUBIDAS E DESCIDAS
+// =============
