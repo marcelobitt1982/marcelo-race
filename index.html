@@ -1,551 +1,67 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MARCELO RACE - ENDURO</title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            min-height: 100vh;
-            background: #080d0b;
-            color: #fff;
-            font-family: Arial, Helvetica, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 12px;
-            overflow-x: hidden;
-            touch-action: none;
-        }
-        .game-container {
-            width: 100%;
-            max-width: 700px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 12px;
-        }
-        h1 {
-            color: #39ff78;
-            font-size: clamp(22px, 4vw, 32px);
-            letter-spacing: 4px;
-            text-align: center;
-            text-shadow: 0 0 12px #16d957;
-        }
-        .game-info {
-            width: 100%;
-            display: flex;
-            justify-content: space-between;
-            gap: 6px;
-            background: #101a14;
-            border: 1px solid #1d6339;
-            border-radius: 8px;
-            padding: 10px 14px;
-            font-size: 13px;
-        }
-        .game-info span { color: #39ff78; font-weight: bold; }
-        #gameCanvas {
-            display: block;
-            width: 100%;
-            max-width: 700px;
-            height: auto;
-            aspect-ratio: 700 / 650;
-            background: #111;
-            border: 2px solid #39ff78;
-            border-radius: 8px;
-            box-shadow: 0 0 22px #16d95744;
-        }
-        .controls {
-            width: 100%;
-            display: flex;
-            justify-content: center;
-            gap: 30px;
-        }
-        .controls button, #restartButton {
-            border: 1px solid #39ff78;
-            border-radius: 12px;
-            background: #102719;
-            color: #39ff78;
-            font-size: 25px;
-            font-weight: bold;
-            min-width: 100px;
-            min-height: 58px;
-            cursor: pointer;
-            touch-action: none;
-            user-select: none;
-        }
-        .controls button:active, #restartButton:active {
-            background: #1b6837;
-            transform: scale(0.95);
-        }
-        #restartButton {
-            font-size: 16px;
-            min-height: 42px;
-            padding: 8px 22px;
-        }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#050b0a">
+    <title>MARCELO RACE</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="game-container">
-        <h1>MARCELO RACE</h1>
-        <div class="game-info">
-            <div>Fase: <span id="phaseName">Dia</span></div>
-            <div>Passados: <span id="carsPassed">0</span></div>
-            <div>Vel: <span id="speed">0</span></div>
-            <div>Dia: <span id="level">1</span></div>
-        </div>
-        <canvas id="gameCanvas" width="700" height="650"></canvas>
-        <div class="controls">
-            <button id="btnLeft">◀</button>
-            <button id="btnRight">▶</button>
-        </div>
-        <button id="restartButton">REINICIAR</button>
-    </div>
 
-    <script>
-        "use strict";
-
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-
-        const WIDTH = 700;
-        const HEIGHT = 650;
-        canvas.width = WIDTH;
-        canvas.height = HEIGHT;
-
-        const phaseNameElement = document.getElementById("phaseName");
-        const carsPassedElement = document.getElementById("carsPassed");
-        const speedElement = document.getElementById("speed");
-        const levelElement = document.getElementById("level");
-        const btnLeft = document.getElementById("btnLeft");
-        const btnRight = document.getElementById("btnRight");
-        const restartButton = document.getElementById("restartButton");
-
-        let player;
-        let enemies = [];
-        let speed = 0;
-        let maxSpeed = 125;
-        let level = 1;
-        let distance = 0;
-        let carsPassed = 0;
-        let weatherType = "Dia"; 
-        let gameOver = false;
-        let lastTime = 0;
-        let animationId = null;
-        let roadPosition = 0;
-
-        const keys = { left: false, right: false };
-
-        function curveAt(z) {
-            return (
-                Math.sin(z * 0.00012) * 1.4 +
-                Math.sin(z * 0.00035) * 0.6
-            );
-        }
-
-        function hillAt(z) {
-            return Math.sin(z * 0.00025) * 30;
-        }
-
-        function createPlayer() {
-            return { x: 0, width: 52, height: 75, color: "#00ffcc" };
-        }
-
-        function createEnemy() {
-            const colors = ["#ff3333", "#3399ff", "#ffcc00", "#ff66cc", "#ffffff", "#ff6600"];
-            return {
-                z: 2000 + Math.random() * 5000,
-                lane: (Math.random() - 0.5) * 1.35,
-                color: colors[Math.floor(Math.random() * colors.length)],
-                width: 48,
-                height: 70,
-                counted: false
-            };
-        }
-
-        function spawnEnemies() {
-            while (enemies.length < 6) {
-                enemies.push(createEnemy());
-            }
-        }
-
-        function updateWeatherAndPhases() {
-            const dayProgress = (distance % 18000) / 18000;
-            level = Math.floor(distance / 18000) + 1;
-
-            if (dayProgress < 0.25) {
-                weatherType = "Dia";
-            } else if (dayProgress < 0.50) {
-                weatherType = "Fim de Tarde";
-            } else if (dayProgress < 0.75) {
-                weatherType = "Noite";
-            } else {
-                weatherType = (level % 2 === 0) ? "Neve" : "Nevoeiro";
-            }
-        }
-
-        function drawBackground() {
-            const horizonY = HEIGHT * 0.4;
-            let topColor = "#2c82c9", bottomColor = "#99d6ff";
-
-            if (weatherType === "Fim de Tarde") {
-                topColor = "#d9531e"; bottomColor = "#ffb366";
-            } else if (weatherType === "Noite") {
-                topColor = "#050b14"; bottomColor = "#18283c";
-            } else if (weatherType === "Nevoeiro") {
-                topColor = "#778899"; bottomColor = "#b0c4de";
-            } else if (weatherType === "Neve") {
-                topColor = "#a4b0be"; bottomColor = "#dfe4ea";
-            }
-
-            const gradient = ctx.createLinearGradient(0, 0, 0, horizonY);
-            gradient.addColorStop(0, topColor);
-            gradient.addColorStop(1, bottomColor);
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, WIDTH, horizonY);
-
-            if (weatherType === "Dia" || weatherType === "Fim de Tarde") {
-                ctx.fillStyle = weatherType === "Dia" ? "#fff9d6" : "#ff9933";
-                ctx.beginPath();
-                ctx.arc(520, 80, 30, 0, Math.PI * 2);
-                ctx.fill();
-            } else if (weatherType === "Noite") {
-                ctx.fillStyle = "#ffffff";
-                ctx.beginPath();
-                ctx.arc(520, 80, 18, 0, Math.PI * 2);
-                ctx.fill();
-            }
-
-            ctx.fillStyle = weatherType === "Neve" ? "#ffffff" : (weatherType === "Noite" ? "#0f1d15" : "#3b5c46");
-            ctx.fillRect(0, horizonY, WIDTH, HEIGHT - horizonY);
-        }
-
-        function drawRoad() {
-            const segments = 120;
-            const segmentLength = 6000 / segments;
-            const horizonY = HEIGHT * 0.4;
-            const baseRoadWidth = 28;
-            const bottomRoadWidth = 620;
-
-            let prevX = WIDTH / 2;
-            let prevY = horizonY;
-            let prevW = baseRoadWidth;
-
-            for (let i = segments; i >= 0; i--) {
-                const z = i * segmentLength;
-                const p = z / 6000;
-
-                const curve = curveAt(z + roadPosition);
-                const hill = hillAt(z + roadPosition);
-
-                const y = horizonY + Math.pow(p, 1.8) * (HEIGHT - horizonY - 20) + hill * 0.2;
-                const roadW = baseRoadWidth + Math.pow(p, 1.4) * (bottomRoadWidth - baseRoadWidth);
-                const center = WIDTH / 2 + curve * Math.pow(p, 1.5) * 220;
-
-                if (i < segments) {
-                    const stripeColor = Math.floor((z + roadPosition * 1.5) / 120) % 2 === 0;
-
-                    let roadColor1 = stripeColor ? "#2c2c2c" : "#222222";
-                    let roadColor2 = stripeColor ? "#ffffff" : "#cc2222"; 
-                    if (weatherType === "Neve") {
-                        roadColor1 = stripeColor ? "#dcdde1" : "#f1f2f6";
-                        roadColor2 = stripeColor ? "#ffffff" : "#ff4757";
-                    }
-
-                    ctx.fillStyle = roadColor2;
-                    ctx.beginPath();
-                    ctx.moveTo(prevX - prevW * 0.6, prevY);
-                    ctx.lineTo(prevX + prevW * 0.6, prevY);
-                    ctx.lineTo(center + roadW * 0.6, y);
-                    ctx.lineTo(center - roadW * 0.6, y);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    ctx.fillStyle = roadColor1;
-                    ctx.beginPath();
-                    ctx.moveTo(prevX - prevW / 2, prevY);
-                    ctx.lineTo(prevX + prevW / 2, prevY);
-                    ctx.lineTo(center + roadW / 2, y);
-                    ctx.lineTo(center - roadW / 2, y);
-                    ctx.closePath();
-                    ctx.fill();
-
-                    if (stripeColor && p > 0.05) {
-                        ctx.strokeStyle = weatherType === "Neve" ? "#718093" : "#dddddd";
-                        ctx.lineWidth = Math.max(1, p * 4);
-                        ctx.beginPath();
-                        ctx.moveTo(prevX, prevY);
-                        ctx.lineTo(center, y);
-                        ctx.stroke();
-                    }
-                }
-
-                prevX = center;
-                prevY = y;
-                prevW = roadW;
-            }
-        }
-
-        function drawCar(x, y, scale, color, isPlayer = false) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.scale(scale, scale);
-
-            const w = isPlayer ? 56 : 50;
-            const h = isPlayer ? 80 : 72;
-
-            ctx.fillStyle = "rgba(0,0,0,0.4)";
-            ctx.beginPath();
-            ctx.ellipse(0, h * 0.42, w * 0.55, h * 0.12, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.fillStyle = "#111";
-            ctx.fillRect(-w * 0.52, -h * 0.2, w * 0.15, h * 0.4);
-            ctx.fillRect(w * 0.37, -h * 0.2, w * 0.15, h * 0.4);
-
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.moveTo(-w * 0.38, h * 0.4);
-            ctx.lineTo(-w * 0.45, -h * 0.1);
-            ctx.lineTo(-w * 0.25, -h * 0.42);
-            ctx.lineTo(w * 0.25, -h * 0.42);
-            ctx.lineTo(w * 0.45, -h * 0.1);
-            ctx.lineTo(w * 0.38, h * 0.4);
-            ctx.closePath();
-            ctx.fill();
-
-            ctx.fillStyle = "#0a192f";
-            ctx.beginPath();
-            ctx.moveTo(-w * 0.19, -h * 0.15);
-            ctx.lineTo(-w * 0.13, -h * 0.33);
-            ctx.lineTo(w * 0.13, -h * 0.33);
-            ctx.lineTo(w * 0.19, -h * 0.15);
-            ctx.closePath();
-            ctx.fill();
-
-            if (weatherType === "Noite" || weatherType === "Nevoeiro") {
-                ctx.fillStyle = "#ff3333";
-                ctx.fillRect(-w * 0.35, -h * 0.42, w * 0.2, h * 0.06);
-                ctx.fillRect(w * 0.15, -h * 0.42, w * 0.2, h * 0.06);
-            }
-
-            ctx.restore();
-        }
-
-        function drawEnemies() {
-            enemies.sort((a, b) => b.z - a.z);
-            enemies.forEach(enemy => {
-                const p = 1 - enemy.z / 6000;
-                if (p <= 0 || p >= 1) return;
-
-                const horizonY = HEIGHT * 0.4;
-                const baseRoadWidth = 28;
-                const bottomRoadWidth = 620;
-                
-                const curve = curveAt(enemy.z + roadPosition);
-                const hill = hillAt(enemy.z + roadPosition);
-
-                const y = horizonY + Math.pow(p, 1.8) * (HEIGHT - horizonY - 20) + hill * 0.2;
-                const roadW = baseRoadWidth + Math.pow(p, 1.4) * (bottomRoadWidth - baseRoadWidth);
-                const center = WIDTH / 2 + curve * Math.pow(p, 1.5) * 220;
-
-                const x = center + enemy.lane * roadW * 0.42;
-                const scale = 0.15 + p * 0.85;
-
-                drawCar(x, y, scale, enemy.color, false);
-            });
-        }
-
-        function drawPlayer() {
-            const curve = curveAt(roadPosition);
-            const x = WIDTH / 2 + player.x * 240 - curve * 40;
-            const y = HEIGHT - 95;
-            drawCar(x, y, 1.0, player.color, true);
-        }
-
-        function drawWeatherEffects() {
-            if (weatherType === "Nevoeiro") {
-                ctx.fillStyle = "rgba(180, 190, 200, 0.35)";
-                ctx.fillRect(0, 0, WIDTH, HEIGHT);
-            } else if (weatherType === "Neve") {
-                ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
-                for (let i = 0; i < 35; i++) {
-                    let rx = (Math.sin(i * 99 + roadPosition * 0.05) * 0.5 + 0.5) * WIDTH;
-                    let ry = (Math.cos(i * 33 + roadPosition * 0.03) * 0.5 + 0.5) * HEIGHT;
-                    ctx.fillRect(rx, ry, 3, 3);
-                }
-            } else if (weatherType === "Noite") {
-                ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
-                ctx.fillRect(0, 0, WIDTH, HEIGHT);
-            }
-        }
-
-        function update(delta) {
-            if (gameOver) return;
-
-            const dt = Math.min(delta / 16.67, 2);
-
-            speed = Math.min(speed + 0.05 * dt, maxSpeed);
-            distance += speed * dt * 0.5;
-            roadPosition += speed * dt * 0.8;
-
-            updateWeatherAndPhases();
-
-            if (keys.left) player.x -= 0.03 * dt;
-            if (keys.right) player.x += 0.03 * dt;
-
-            player.x = Math.max(-1.1, Math.min(1.1, player.x));
-
-            enemies.forEach(enemy => {
-                enemy.z -= (speed * 0.75) * dt * 1.5;
-
-                if (enemy.z < 100) {
-                    enemy.z = 5500 + Math.random() * 1500;
-                    enemy.lane = (Math.random() - 0.5) * 1.35;
-                    enemy.counted = false;
-                }
-
-                if (enemy.z < 2000 && !enemy.counted) {
-                    enemy.counted = true;
-                    carsPassed++;
-                }
-
-                const p = 1 - enemy.z / 6000;
-                if (p > 0.82 && p < 0.98) {
-                    const curve = curveAt(enemy.z + roadPosition);
-                    const baseRoadWidth = 28;
-                    const bottomRoadWidth = 620;
-                    const roadW = baseRoadWidth + Math.pow(p, 1.4) * (bottomRoadWidth - baseRoadWidth);
-                    const center = WIDTH / 2 + curve * Math.pow(p, 1.5) * 220;
-                    const enemyX = center + enemy.lane * roadW * 0.42;
-
-                    const playerCurve = curveAt(roadPosition);
-                    const playerX = WIDTH / 2 + player.x * 240 - playerCurve * 40;
-
-                    if (Math.abs(enemyX - playerX) < 42) {
-                        endGame();
-                    }
-                }
-            });
-
-            spawnEnemies();
-
-            if (phaseNameElement) phaseNameElement.textContent = weatherType;
-            if (carsPassedElement) carsPassedElement.textContent = carsPassed;
-            if (speedElement) speedElement.textContent = Math.floor(speed);
-            if (levelElement) levelElement.textContent = level;
-        }
-
-        function endGame() {
-            gameOver = true;
-            ctx.fillStyle = "rgba(0,0,0,0.85)";
-            ctx.fillRect(0, 0, WIDTH, HEIGHT);
-
-            ctx.textAlign = "center";
-            ctx.fillStyle = "#ff3838";
-            ctx.font = "bold 52px Arial";
-            ctx.fillText("FIM DE JOGO", WIDTH / 2, HEIGHT / 2 - 30);
-
-            ctx.fillStyle = "#fff";
-            ctx.font = "bold 22px Arial";
-            ctx.fillText("Carros Ultrapassados: " + carsPassed, WIDTH / 2, HEIGHT / 2 + 20);
-
-            ctx.font = "16px Arial";
-            ctx.fillText("Pressione ESPAÇO para reiniciar", WIDTH / 2, HEIGHT / 2 + 65);
-        }
-
-        function draw() {
-            drawBackground();
-            drawRoad();
-            drawEnemies();
-            drawPlayer();
-            drawWeatherEffects();
-        }
-
-        function gameLoop(timestamp) {
-            if (!lastTime) lastTime = timestamp;
-            const delta = timestamp - lastTime;
-            lastTime = timestamp;
-
-            update(delta);
-            draw();
-
-            if (!gameOver) {
-                animationId = requestAnimationFrame(gameLoop);
-            }
-        }
-
-        document.addEventListener("keydown", event => {
-            if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") {
-                keys.left = true;
-                event.preventDefault();
-            }
-            if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") {
-                keys.right = true;
-                event.preventDefault();
-            }
-            if (event.code === "Space" && gameOver) {
-                restartGame();
-                event.preventDefault();
-            }
-        });
-
-        document.addEventListener("keyup", event => {
-            if (event.key === "ArrowLeft" || event.key.toLowerCase() === "a") keys.left = false;
-            if (event.key === "ArrowRight" || event.key.toLowerCase() === "d") keys.right = false;
-        });
-
-        function setupTouchButton(button, direction) {
-            if (!button) return;
-            button.addEventListener("pointerdown", e => {
-                e.preventDefault();
-                keys[direction] = true;
-                button.setPointerCapture(e.pointerId);
-            });
-            button.addEventListener("pointerup", e => {
-                e.preventDefault();
-                keys[direction] = false;
-            });
-            button.addEventListener("pointercancel", () => { keys[direction] = false; });
-        }
-
-        setupTouchButton(btnLeft, "left");
-        setupTouchButton(btnRight, "right");
-
-        function restartGame() {
-            if (animationId) cancelAnimationFrame(animationId);
-
-            player = createPlayer();
-            enemies = [];
-            speed = 0;
-            level = 1;
-            distance = 0;
-            carsPassed = 0;
-            roadPosition = 0;
-            weatherType = "Dia";
-            gameOver = false;
-            lastTime = 0;
-
-            keys.left = false;
-            keys.right = false;
-
-            spawnEnemies();
-
-            if (phaseNameElement) phaseNameElement.textContent = "Dia";
-            if (carsPassedElement) carsPassedElement.textContent = "0";
-            if (speedElement) speedElement.textContent = "0";
-            if (levelElement) levelElement.textContent = "1";
-
-            animationId = requestAnimationFrame(gameLoop);
-        }
-
-        if (restartButton) {
-            restartButton.addEventListener("click", restartGame);
-        }
-
-        restartGame();
-    </script>
+    <header class="topbar">
+        <div class="logo">MARCELO <span>RACE</span></div>
+        <div class="subtitle">MODERN ENDURANCE</div>
+    </header>
+
+    <main>
+        <section class="game-container">
+
+            <div class="hud">
+                <div>
+                    <small>VELOCIDADE</small>
+                    <strong id="speed">000</strong>
+                    <small>KM/H</small>
+                </div>
+
+                <div>
+                    <small>PONTUAÇÃO</small>
+                    <strong id="score">000000</strong>
+                </div>
+
+                <div>
+                    <small>TEMPO</small>
+                    <strong id="time">90</strong>
+                </div>
+            </div>
+
+            <canvas id="gameCanvas"></canvas>
+
+            <div class="overlay" id="overlay">
+                <h1>MARCELO <span>RACE</span></h1>
+                <p>THE ENDURANCE CHALLENGE</p>
+                <button id="startButton">START RACE</button>
+                <small>ULTRAPASSE. SOBREVIVA. VENÇA.</small>
+            </div>
+
+            <div class="game-message" id="message"></div>
+
+            <div class="mobile-controls">
+                <button id="leftButton">◀</button>
+                <button id="rightButton">▶</button>
+                <button id="accelerateButton">▲</button>
+                <button id="brakeButton">▼</button>
+            </div>
+
+        </section>
+    </main>
+
+    <footer>
+        <span>MARCELO RACE © 2026</span>
+        <span>ARCADE RACING EXPERIENCE</span>
+    </footer>
+
+    <script src="game.js"></script>
 </body>
 </html>
