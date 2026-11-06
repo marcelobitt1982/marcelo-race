@@ -1,66 +1,57 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#050b0a">
-    <title>MARCELO RACE</title>
+    <title>MARCELO RACE - RETRO HD</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
     <header class="topbar">
         <div class="logo">MARCELO <span>RACE</span></div>
-        <div class="subtitle">MODERN ENDURANCE</div>
+        <div class="subtitle">CLASSIC ARCADE EDITION</div>
     </header>
 
-    <main>
-        <section class="game-container">
+    <main class="game-container">
 
-            <div class="hud">
-                <div>
-                    <small>VELOCIDADE</small>
-                    <strong id="speed">000</strong>
-                    <small>KM/H</small>
-                </div>
-
-                <div>
-                    <small>PONTUAÇÃO</small>
-                    <strong id="score">000000</strong>
-                </div>
-
-                <div>
-                    <small>TEMPO</small>
-                    <strong id="time">90</strong>
-                </div>
+        <div class="hud">
+            <div class="hud-item">
+                <small>VELOCIDADE</small>
+                <strong id="speed">000</strong>
+                <small>KM/H</small>
             </div>
 
+            <div class="hud-item">
+                <small>PONTUAÇÃO</small>
+                <strong id="score">000000</strong>
+            </div>
+
+            <div class="hud-item">
+                <small>TEMPO</small>
+                <strong id="time">90</strong>
+            </div>
+        </div>
+
+        <div class="canvas-wrapper">
             <canvas id="gameCanvas"></canvas>
+        </div>
 
-            <div class="overlay" id="overlay">
-                <h1>MARCELO <span>RACE</span></h1>
-                <p>THE ENDURANCE CHALLENGE</p>
-                <button id="startButton">START RACE</button>
-                <small>ULTRAPASSE. SOBREVIVA. VENÇA.</small>
+        <div id="message" class="game-message"></div>
+
+        <div class="mobile-controls">
+            <div class="steering-group">
+                <button id="leftButton" aria-label="Esquerda">◀</button>
+                <button id="rightButton" aria-label="Direita">▶</button>
             </div>
-
-            <div class="game-message" id="message"></div>
-
-            <div class="mobile-controls">
-                <button id="leftButton">◀</button>
-                <button id="rightButton">▶</button>
-                <button id="accelerateButton">▲</button>
-                <button id="brakeButton">▼</button>
+            <div class="action-group">
+                <button id="brakeButton" aria-label="Frear">▼</button>
+                <button id="accelerateButton" aria-label="Acelerar">▲</button>
             </div>
+        </div>
 
-        </section>
     </main>
-
-    <footer>
-        <span>MARCELO RACE © 2026</span>
-        <span>ARCADE RACING EXPERIENCE</span>
-    </footer>
 
     <script src="game.js"></script>
 </body>
