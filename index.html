@@ -65,13 +65,12 @@
     EJS_gameUrl = 'enduro.bin'; 
     EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
     
-    // Configurações essenciais para telemóvel
+    // Configurações para telemóvel e arranque automático
     EJS_mouse = false;
     EJS_multitouch = true;
-    EJS_gamepad = true;       // Ativa suporte a comandos/toque nativo
-    EJS_screenRecording = false;
+    EJS_gamepad = true;
+    EJS_startOnLoaded = true; // Inicia o jogo automaticamente sem precisar clicar em "Play"
     EJS_settings = {
-      // Força os controlos virtuais a aparecerem no ecrã tátil
       virtualPad: true
     };
   </script>
