@@ -2,57 +2,348 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#050b0a">
-    <title>MARCELO RACE - RETRO HD</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enduro - Web Edition</title>
+    <style>
+        body {
+            background-color: #111;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            overflow: hidden;
+        }
+        h1 { margin: 5px 0; font-size: 22px; color: #ffcc00; }
+        #game-container {
+            position: relative;
+            width: 600px;
+            height: 450px;
+            margin: 0 auto;
+            border: 4px solid #555;
+            background: #000;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+        canvas {
+            display: block;
+        }
+        #ui {
+            width: 600px;
+            margin: 10px auto;
+            background: #1a1a1a;
+            border: 2px solid #444;
+            padding: 10px;
+            display: flex;
+            justify-content: space-around;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        .hud-box {
+            text-align: center;
+        }
+        .hud-value {
+            font-size: 18px;
+            color: #00ff00;
+            font-weight: bold;
+        }
+        #instructions {
+            font-size: 13px;
+            color: #aaa;
+            margin-top: 10px;
+        }
+    </style>
 </head>
 <body>
 
-    <header class="topbar">
-        <div class="logo">MARCELO <span>RACE</span></div>
-        <div class="subtitle">CLASSIC ARCADE EDITION</div>
-    </header>
+    <h1>ENDURO - ATARI</h1>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="600" height="450"></canvas>
+    </div>
 
-    <main class="game-container">
+    <div id="ui">
+        <div class="hud-box">DIA<br><span id="hud-day" class="hud-value">1</span></div>
+        <div class="hud-box">KM<br><span id="hud-km" class="hud-value">0</span></div>
+        <div class="hud-box">PASSADOS<br><span id="hud-passed" class="hud-value">0/200</span></div>
+        <div class="hud-box">CLIMA<br><span id="hud-weather" class="hud-value">DIA</span></div>
+    </div>
 
-        <div class="hud">
-            <div class="hud-item">
-                <small>VELOCIDADE</small>
-                <strong id="speed">000</strong>
-                <small>KM/H</small>
-            </div>
+    <div id="instructions">
+        Controles: <b>ESQUERDA / DIREITA</b> para guiar | <b>SETA ACIMA</b> para Acelerar | <b>SETA ABAIXO</b> para Frear
+    </div>
 
-            <div class="hud-item">
-                <small>PONTUAÇÃO</small>
-                <strong id="score">000000</strong>
-            </div>
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-            <div class="hud-item">
-                <small>TEMPO</small>
-                <strong id="time">90</strong>
-            </div>
-        </div>
+// Estado do Jogo
+let gameState = "START"; // START, PLAYING
+let scoreKm = 0;
+let day = 1;
+let carsPassed = 0;
+let carsRequired = 200;
 
-        <div class="canvas-wrapper">
-            <canvas id="gameCanvas"></canvas>
-        </div>
+// Jogador
+let player = {
+    x: 300,
+    y: 370,
+    width: 60,
+    height: 35,
+    speed: 0,
+    maxSpeed: 7
+};
 
-        <div id="message" class="game-message"></div>
+// Estrada e Ambiente
+let roadWidthNear = 500;
+let roadWidthFar = 60;
+let roadCenter = 300;
+let horizonY = 170;
 
-        <div class="mobile-controls">
-            <div class="steering-group">
-                <button id="leftButton" aria-label="Esquerda">◀</button>
-                <button id="rightButton" aria-label="Direita">▶</button>
-            </div>
-            <div class="action-group">
-                <button id="brakeButton" aria-label="Frear">▼</button>
-                <button id="accelerateButton" aria-label="Acelerar">▲</button>
-            </div>
-        </div>
+let timeOfDay = 0; // 0 a 200 (Ciclo do dia)
+let weather = "CLEAR"; // CLEAR, FOG, ICE, NIGHT
 
-    </main>
+let cars = [];
+let keys = {};
 
-    <script src="game.js"></script>
+// Teclado
+window.addEventListener("keydown", e => {
+    keys[e.code] = true;
+    if(gameState === "START" && e.code === "Space") {
+        resetGame();
+    }
+    // Evitar rolagem da página com as setas
+    if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.code)) {
+        e.preventDefault();
+    }
+});
+window.addEventListener("keyup", e => { keys[e.code] = false; });
+
+function resetGame() {
+    gameState = "PLAYING";
+    scoreKm = 0;
+    day = 1;
+    carsPassed = 0;
+    carsRequired = 200;
+    timeOfDay = 0;
+    weather = "CLEAR";
+    player.x = 300;
+    player.speed = 0;
+    cars = [];
+}
+
+// Spawn de carros inimigos
+function spawnCar() {
+    if (cars.length < 5 && Math.random() < 0.04 + (day * 0.003)) {
+        let laneOffset = (Math.random() - 0.5) * 320;
+        cars.push({
+            x: roadCenter + laneOffset,
+            z: 0.02, // Profundidade inicial (longe)
+            speed: 1.5 + Math.random() * 1.5 + (day * 0.15),
+            color: ["#cc0000", "#0066cc", "#cccc00", "#cc00cc", "#00cc66"][Math.floor(Math.random()*5)]
+        });
+    }
+}
+
+// Atualização da Lógica
+function update() {
+    if (gameState !== "PLAYING") return;
+
+    // Horário e Clima dinâmico
+    timeOfDay += 0.04;
+    if (timeOfDay > 200) {
+        timeOfDay = 0;
+        day++;
+        carsPassed = 0;
+        carsRequired = 300; // Dias seguintes exigem 300 carros
+    }
+
+    // Definir clima conforme o ciclo
+    if (timeOfDay < 70) {
+        weather = "CLEAR";
+    } else if (timeOfDay < 110) {
+        weather = "FOG";
+    } else if (timeOfDay < 150) {
+        weather = "ICE"; 
+    } else {
+        weather = "NIGHT";
+    }
+
+    // Controles do Jogador
+    let steeringPower = (weather === "ICE") ? 2.5 : 4.5;
+    
+    if (keys["ArrowLeft"]) player.x -= steeringPower;
+    if (keys["ArrowRight"]) player.x += steeringPower;
+    
+    if (keys["ArrowUp"]) {
+        if (player.speed < player.maxSpeed) player.speed += 0.08;
+    } else if (keys["ArrowDown"]) {
+        player.speed -= 0.25; // Freio
+        if (player.speed < 0) player.speed = 0;
+    } else {
+        player.speed -= 0.015; // Atrito natural
+        if (player.speed < 0) player.speed = 0;
+    }
+
+    scoreKm += player.speed * 0.02;
+
+    // Movimento dos Carros Inimigos
+    spawnCar();
+    for (let i = cars.length - 1; i >= 0; i--) {
+        let c = cars[i];
+        c.z += (player.speed - c.speed * 0.4) * 0.0007;
+        c.z = Math.max(0.01, c.z);
+
+        // Mapear posição 3D para tela
+        let scale = c.z;
+        let screenX = roadCenter + (c.x - roadCenter) * scale;
+
+        // Se o carro passou por você
+        if (c.z > 1.0) {
+            cars.splice(i, 1);
+            carsPassed++;
+            continue;
+        }
+
+        // Colisão com o jogador
+        if (c.z > 0.82 && c.z < 0.96) {
+            if (Math.abs(screenX - player.x) < 35) {
+                player.speed = Math.max(0, player.speed - 1.5); // Bateu e desacelerou forte
+            }
+        }
+    }
+
+    // Limites da pista (fora da pista freia o carro)
+    if (player.x < 130 || player.x > 470) {
+        player.speed *= 0.92; 
+    }
+
+    // Atualizar HUD
+    document.getElementById("hud-day").innerText = day;
+    document.getElementById("hud-km").innerText = Math.floor(scoreKm);
+    document.getElementById("hud-passed").innerText = `${carsPassed}/${carsRequired}`;
+    document.getElementById("hud-weather").innerText = weather;
+}
+
+// Renderização Gráfica
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Céu dinâmico
+    let skyColor = "#4a90e2";
+    if (weather === "NIGHT") skyColor = "#050510";
+    if (weather === "FOG") skyColor = "#888888";
+    if (weather === "ICE") skyColor = "#b0c4de";
+    
+    ctx.fillStyle = skyColor;
+    ctx.fillRect(0, 0, canvas.width, horizonY);
+
+    // Sol / Lua
+    if (weather !== "NIGHT") {
+        ctx.fillStyle = "#f5a623";
+        ctx.beginPath();
+        ctx.arc(450, 70, 22, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Chão / Terra
+    ctx.fillStyle = (weather === "ICE") ? "#e8f4f8" : "#388e3c";
+    ctx.fillRect(0, horizonY, canvas.width, canvas.height - horizonY);
+
+    // Estrada
+    ctx.fillStyle = (weather === "ICE") ? "#ffffff" : "#333333";
+    ctx.beginPath();
+    ctx.moveTo(roadCenter - roadWidthFar / 2, horizonY);
+    ctx.lineTo(roadCenter + roadWidthFar / 2, horizonY);
+    ctx.lineTo(roadCenter + roadWidthNear / 2, canvas.height);
+    ctx.lineTo(roadCenter - roadWidthNear / 2, canvas.height);
+    ctx.fill();
+
+    // Faixas da Estrada (Efeito de movimento)
+    let offset = (Date.now() * player.speed * 0.15) % 50;
+    for (let y = horizonY; y < canvas.height; y += 50) {
+        let currentY = y + offset;
+        if (currentY > canvas.height) continue;
+        let scale = (currentY - horizonY) / (canvas.height - horizonY);
+        ctx.fillStyle = (weather === "ICE") ? "#88bbff" : "#ffffff";
+        ctx.fillRect(roadCenter - 4, currentY, 8, 20 * scale);
+    }
+
+    // Desenhar Carros Inimigos (Ordenados por profundidade)
+    let sortedCars = [...cars].sort((a, b) => a.z - b.z);
+    for (let c of sortedCars) {
+        let scale = c.z;
+        let screenX = roadCenter + (c.x - roadCenter) * scale;
+        let screenY = horizonY + (canvas.height - horizonY) * scale;
+        
+        let cWidth = 70 * scale;
+        let cHeight = 40 * scale;
+
+        if (weather === "NIGHT") {
+            // À noite só aparecem as lanternas traseiras vermelhas
+            ctx.fillStyle = "#ff0000";
+            ctx.fillRect(screenX - cWidth * 0.25, screenY - cHeight * 0.4, 5, 4);
+            ctx.fillRect(screenX + cWidth * 0.1, screenY - cHeight * 0.4, 5, 4);
+        } else {
+            // Carro inimigo clássico
+            ctx.fillStyle = c.color;
+            ctx.fillRect(screenX - cWidth / 2, screenY - cHeight, cWidth, cHeight);
+            ctx.fillStyle = "#111"; // Vidros
+            ctx.fillRect(screenX - cWidth * 0.3, screenY - cHeight * 0.75, cWidth * 0.6, cHeight * 0.35);
+        }
+    }
+
+    // Desenhar Carro do Jogador (Vermelho Atari)
+    let px = player.x - player.width / 2;
+    let py = player.y;
+
+    // Sombra
+    ctx.fillStyle = "rgba(0,0,0,0.4)";
+    ctx.fillRect(px + 8, py + player.height - 4, player.width - 16, 8);
+
+    // Carroceria
+    ctx.fillStyle = "#e53935";
+    ctx.fillRect(px, py + 12, player.width, player.height - 12);
+    ctx.fillRect(px + 12, py, player.width - 24, 15); // Teto
+
+    // Vidros e detalhes
+    ctx.fillStyle = "#111";
+    ctx.fillRect(px + 16, py + 4, player.width - 32, 10);
+    ctx.fillStyle = "#ffeb3b"; // Faróis
+    ctx.fillRect(px + 4, py + player.height - 6, 8, 4);
+    ctx.fillRect(px + player.width - 12, py + player.height - 6, 8, 4);
+
+    // Efeito de Nevoeiro
+    if (weather === "FOG") {
+        ctx.fillStyle = "rgba(200, 200, 200, 0.45)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // Tela Inicial
+    if (gameState === "START") {
+        ctx.fillStyle = "rgba(0, 0, 0, 0.9)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = "#ffcc00";
+        ctx.font = "bold 32px 'Courier New'";
+        ctx.textAlign = "center";
+        ctx.fillText("ENDURO", canvas.width / 2, 160);
+        
+        ctx.font = "16px 'Courier New'";
+        ctx.fillStyle = "#fff";
+        ctx.fillText("Pressione [ ESPAÇO ] para Começar", canvas.width / 2, 220);
+        ctx.fillStyle = "#aaa";
+        ctx.fillText("Complete as metas diárias desviando dos carros!", canvas.width / 2, 260);
+    }
+}
+
+// Loop Principal
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+
 </body>
 </html>
