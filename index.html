@@ -1,408 +1,82 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Enduro - Atari Style</title>
-    <style>
-        body {
-            background-color: #111;
-            color: #fff;
-            font-family: 'Courier New', Courier, monospace;
-            text-align: center;
-            margin: 0;
-            padding: 10px;
-            overflow: hidden;
-            touch-action: none; /* Evita comportamentos indesejados de zoom/scroll no mobile */
-        }
-        h1 { margin: 2px 0; font-size: 20px; color: #ffcc00; }
-        #game-container {
-            position: relative;
-            width: 100%;
-            max-width: 600px;
-            height: 400px;
-            margin: 0 auto;
-            border: 4px solid #555;
-            background: #000;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
-        }
-        canvas {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-        #ui {
-            width: 100%;
-            max-width: 600px;
-            margin: 5px auto;
-            background: #1a1a1a;
-            border: 2px solid #444;
-            padding: 6px;
-            display: flex;
-            justify-content: space-around;
-            font-size: 12px;
-            box-sizing: border-box;
-        }
-        .hud-box {
-            text-align: center;
-        }
-        .hud-value {
-            font-size: 15px;
-            color: #00ff00;
-            font-weight: bold;
-        }
-        #instructions {
-            font-size: 11px;
-            color: #aaa;
-            margin-top: 5px;
-        }
-        /* Estilos dos botões virtuais para celular */
-        #mobile-controls {
-            display: flex;
-            justify-content: space-between;
-            width: 100%;
-            max-width: 600px;
-            margin: 10px auto 0 auto;
-            box-sizing: border-box;
-            padding: 0 10px;
-        }
-        .control-group {
-            display: flex;
-            gap: 10px;
-        }
-        .game-btn {
-            background-color: #333;
-            color: #ffcc00;
-            border: 2px solid #666;
-            font-size: 20px;
-            font-weight: bold;
-            width: 70px;
-            height: 60px;
-            border-radius: 12px;
-            outline: none;
-            cursor: pointer;
-            user-select: none;
-            -webkit-user-select: none;
-            active-background: #555;
-        }
-        .game-btn:active, .game-btn.pressed {
-            background-color: #ffcc00;
-            color: #111;
-            border-color: #fff;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Enduro - Atari 2600 no Telemóvel</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #111;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+    
+    #rotate-notice {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.9);
+      color: #fff;
+      z-index: 9999;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+    }
+
+    @media screen and (max-orientation: portrait) {
+      #rotate-notice {
+        display: flex;
+      }
+    }
+
+    #game-container {
+      width: 100%;
+      height: 100vh;
+    }
+  </style>
 </head>
 <body>
 
-    <h1>ENDURO - ATARI</h1>
-    <div id="game-container">
-        <canvas id="gameCanvas" width="600" height="450"></canvas>
+  <div id="rotate-notice">
+    <div>
+      <h2>🔄 Gire o telemóvel</h2>
+      <p>Para uma melhor experiência a jogar Enduro, por favor, coloque o telemóvel na horizontal.</p>
     </div>
+  </div>
 
-    <div id="ui">
-        <div class="hud-box">DIA<br><span id="hud-day" class="hud-value">1</span></div>
-        <div class="hud-box">KM<br><span id="hud-km" class="hud-value">0</span></div>
-        <div class="hud-box">PASSADOS<br><span id="hud-passed" class="hud-value">0/200</span></div>
-        <div class="hud-box">CLIMA<br><span id="hud-weather" class="hud-value">DIA</span></div>
-    </div>
+  <div id="game-container">
+    <div id="game" style="width:100%; height:100%;"></div>
+  </div>
 
-    <!-- Botões Virtuais -->
-    <div id="mobile-controls">
-        <div class="control-group">
-            <button id="btn-left" class="game-btn">◀</button>
-            <button id="btn-right" class="game-btn">▶</button>
-        </div>
-        <div class="control-group">
-            <button id="btn-brake" class="game-btn">▼</button>
-            <button id="btn-accel" class="game-btn">▲</button>
-        </div>
-    </div>
-
-    <div id="instructions">
-        Controles: <b>ESQUERDA / DIREITA</b> para guiar | <b>▲</b> Acelerar | <b>▼</b> Frear
-    </div>
-
-<script>
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-
-// Estado do Jogo (Inicia direto em PLAYING)
-let gameState = "PLAYING"; 
-let scoreKm = 0;
-let day = 1;
-let carsPassed = 0;
-let carsRequired = 200;
-
-// Jogador
-let player = {
-    x: 300,
-    y: 370,
-    width: 60,
-    height: 35,
-    speed: 0,
-    maxSpeed: 7
-};
-
-// Estrada e Ambiente
-let roadWidthNear = 500;
-let roadWidthFar = 60;
-let baseRoadCenter = 300;
-let horizonY = 170;
-
-let roadCurve = 0;       
-let targetCurve = 0;     
-let curveTimer = 0;      
-
-let timeOfDay = 0; 
-let weather = "CLEAR"; 
-
-let cars = [];
-let keys = {};
-
-// Teclado
-window.addEventListener("keydown", e => {
-    keys[e.code] = true;
-    if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"].includes(e.code)) {
-        e.preventDefault();
-    }
-});
-window.addEventListener("keyup", e => { keys[e.code] = false; });
-
-// Configuração dos Botões Virtuais Mobile (Toque e Mouse)
-function setupTouchButton(id, code) {
-    const btn = document.getElementById(id);
-
-    const pressOn = (e) => {
-        e.preventDefault();
-        keys[code] = true;
-        btn.classList.add("pressed");
+  <script type="text/javascript">
+    EJS_player = '#game';
+    EJS_core = 'atari2600'; 
+    EJS_gameUrl = 'enduro.bin'; 
+    EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+    
+    // Configurações essenciais para telemóvel
+    EJS_mouse = false;
+    EJS_multitouch = true;
+    EJS_gamepad = true;       // Ativa suporte a comandos/toque nativo
+    EJS_screenRecording = false;
+    EJS_settings = {
+      // Força os controlos virtuais a aparecerem no ecrã tátil
+      virtualPad: true
     };
-
-    const pressOff = (e) => {
-        e.preventDefault();
-        keys[code] = false;
-        btn.classList.remove("pressed");
-    };
-
-    btn.addEventListener("touchstart", pressOn, {passive: false});
-    btn.addEventListener("touchend", pressOff, {passive: false});
-    btn.addEventListener("touchcancel", pressOff, {passive: false});
-    
-    // Suporte para cliques com mouse também, caso queira testar no PC
-    btn.addEventListener("mousedown", pressOn);
-    btn.addEventListener("mouseup", pressOff);
-    btn.addEventListener("mouseleave", pressOff);
-}
-
-setupTouchButton("btn-left", "ArrowLeft");
-setupTouchButton("btn-right", "ArrowRight");
-setupTouchButton("btn-accel", "ArrowUp");
-setupTouchButton("btn-brake", "ArrowDown");
-
-const atariCarColors = [
-    "#FF3333", "#3333FF", "#FFFF33", "#FF33FF", "#33FF33", "#FF9933", "#33FFFF"
-];
-
-function getRoadCenterAt(y) {
-    let normalizedY = (y - horizonY) / (canvas.height - horizonY); 
-    return baseRoadCenter + roadCurve * Math.sin(normalizedY * Math.PI * 0.6);
-}
-
-function spawnCar() {
-    if (cars.length < 5 && Math.random() < 0.04 + (day * 0.003)) {
-        let laneOffset = (Math.random() - 0.5) * 260; 
-        let randomColor = atariCarColors[Math.floor(Math.random() * atariCarColors.length)];
-        
-        cars.push({
-            xOffset: laneOffset, 
-            z: 0.02, 
-            speed: 1.5 + Math.random() * 1.5 + (day * 0.15),
-            color: randomColor
-        });
-    }
-}
-
-function update() {
-    if (gameState !== "PLAYING") return;
-
-    timeOfDay += 0.04;
-    if (timeOfDay > 200) {
-        timeOfDay = 0;
-        day++;
-        carsPassed = 0;
-        carsRequired = 300; 
-    }
-
-    if (timeOfDay < 70) {
-        weather = "CLEAR";
-    } else if (timeOfDay < 110) {
-        weather = "FOG";
-    } else if (timeOfDay < 150) {
-        weather = "ICE"; 
-    } else {
-        weather = "NIGHT";
-    }
-
-    if (player.speed > 0) {
-        curveTimer += player.speed * 0.015;
-        if (curveTimer > 120) {
-            curveTimer = 0;
-            let choices = [0, 160, -160, 0, -200, 200];
-            targetCurve = choices[Math.floor(Math.random() * choices.length)];
-        }
-    }
-    roadCurve += (targetCurve - roadCurve) * 0.01;
-
-    let steeringPower = (weather === "ICE") ? 2.5 : 4.5;
-    
-    if (keys["ArrowLeft"]) player.x -= steeringPower;
-    if (keys["ArrowRight"]) player.x += steeringPower;
-    
-    if (keys["ArrowUp"]) {
-        if (player.speed < player.maxSpeed) player.speed += 0.08;
-    } else if (keys["ArrowDown"]) {
-        player.speed -= 0.25; 
-        if (player.speed < 0) player.speed = 0;
-    } else {
-        player.speed -= 0.015; 
-        if (player.speed < 0) player.speed = 0;
-    }
-
-    scoreKm += player.speed * 0.02;
-
-    spawnCar();
-    for (let i = cars.length - 1; i >= 0; i--) {
-        let c = cars[i];
-        c.z += (player.speed - c.speed * 0.4) * 0.0007;
-        c.z = Math.max(0.01, c.z);
-
-        let scale = c.z;
-        let screenY = horizonY + (canvas.height - horizonY) * scale;
-        let currentRoadCenter = getRoadCenterAt(screenY);
-        let screenX = currentRoadCenter + c.xOffset * scale;
-
-        if (c.z > 1.0) {
-            cars.splice(i, 1);
-            carsPassed++;
-            continue;
-        }
-
-        if (c.z > 0.82 && c.z < 0.96) {
-            if (Math.abs(screenX - player.x) < 35) {
-                player.speed = Math.max(0, player.speed - 1.5); 
-            }
-        }
-    }
-
-    let playerRoadCenter = getRoadCenterAt(player.y);
-    let halfRoadWidth = roadWidthNear / 2 - 30;
-    
-    if (player.x < playerRoadCenter - halfRoadWidth) {
-        player.x = playerRoadCenter - halfRoadWidth;
-        player.speed *= 0.85;
-    }
-    if (player.x > playerRoadCenter + halfRoadWidth) {
-        player.x = playerRoadCenter + halfRoadWidth;
-        player.speed *= 0.85;
-    }
-
-    document.getElementById("hud-day").innerText = day;
-    document.getElementById("hud-km").innerText = Math.floor(scoreKm);
-    document.getElementById("hud-passed").innerText = `${carsPassed}/${carsRequired}`;
-    document.getElementById("hud-weather").innerText = weather;
-}
-
-function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    let skyColor = "#4a90e2";
-    if (weather === "NIGHT") skyColor = "#050510";
-    if (weather === "FOG") skyColor = "#888888";
-    if (weather === "ICE") skyColor = "#b0c4de";
-    
-    ctx.fillStyle = skyColor;
-    ctx.fillRect(0, 0, canvas.width, horizonY);
-
-    if (weather !== "NIGHT") {
-        ctx.fillStyle = "#f5a623";
-        ctx.beginPath();
-        ctx.arc(450 - (roadCurve * 0.25), 70, 22, 0, Math.PI * 2);
-        ctx.fill();
-    }
-
-    ctx.fillStyle = (weather === "ICE") ? "#e8f4f8" : "#388e3c";
-    ctx.fillRect(0, horizonY, canvas.width, canvas.height - horizonY);
-
-    ctx.fillStyle = (weather === "ICE") ? "#ffffff" : "#333333";
-    ctx.beginPath();
-    ctx.moveTo(getRoadCenterAt(horizonY) - roadWidthFar / 2, horizonY);
-    ctx.lineTo(getRoadCenterAt(horizonY) + roadWidthFar / 2, horizonY);
-    ctx.lineTo(getRoadCenterAt(canvas.height) + roadWidthNear / 2, canvas.height);
-    ctx.lineTo(getRoadCenterAt(canvas.height) - roadWidthNear / 2, canvas.height);
-    ctx.fill();
-
-    let sortedCars = [...cars].sort((a, b) => a.z - b.z);
-    for (let c of sortedCars) {
-        let scale = c.z;
-        let screenY = horizonY + (canvas.height - horizonY) * scale;
-        let currentRoadCenter = getRoadCenterAt(screenY);
-        let screenX = currentRoadCenter + c.xOffset * scale;
-        
-        let cWidth = 70 * scale;
-        let cHeight = 40 * scale;
-
-        let cx = screenX - cWidth / 2;
-        let cy = screenY - cHeight;
-
-        if (weather === "NIGHT") {
-            ctx.fillStyle = "#ffff99";
-            let headlightSize = Math.max(2, 6 * scale);
-            ctx.fillRect(cx + cWidth * 0.15, cy + cHeight * 0.4, headlightSize, headlightSize);
-            ctx.fillRect(cx + cWidth * 0.75, cy + cHeight * 0.4, headlightSize, headlightSize);
-
-            ctx.fillStyle = "#ff0000";
-            ctx.fillRect(cx + cWidth * 0.25, cy + cHeight * 0.7, Math.max(2, 4 * scale), Math.max(2, 3 * scale));
-            ctx.fillRect(cx + cWidth * 0.65, cy + cHeight * 0.7, Math.max(2, 4 * scale), Math.max(2, 3 * scale));
-        } else {
-            ctx.fillStyle = c.color;
-            ctx.fillRect(cx, cy + cHeight * 0.35, cWidth, cHeight * 0.65);
-            ctx.fillRect(cx + cWidth * 0.2, cy, cWidth * 0.6, cHeight * 0.45);
-
-            ctx.fillStyle = "#111111";
-            ctx.fillRect(cx + cWidth * 0.25, cy + cHeight * 0.1, cWidth * 0.5, cHeight * 0.25);
-        }
-    }
-
-    let px = player.x - player.width / 2;
-    let py = player.y;
-
-    ctx.fillStyle = "rgba(0,0,0,0.4)";
-    ctx.fillRect(px + 8, py + player.height - 4, player.width - 16, 8);
-
-    ctx.fillStyle = "#e53935";
-    ctx.fillRect(px, py + 12, player.width, player.height - 12);
-    ctx.fillRect(px + 12, py, player.width - 24, 15); 
-
-    ctx.fillStyle = "#111";
-    ctx.fillRect(px + 16, py + 4, player.width - 32, 10);
-    ctx.fillStyle = "#ffeb3b"; 
-    ctx.fillRect(px + 4, py + player.height - 6, 8, 4);
-    ctx.fillRect(px + player.width - 12, py + player.height - 6, 8, 4);
-
-    if (weather === "FOG") {
-        ctx.fillStyle = "rgba(200, 200, 200, 0.45)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-}
-
-function loop() {
-    update();
-    draw();
-    requestAnimationFrame(loop);
-}
-
-loop();
-</script>
+  </script>
+  
+  <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
 
 </body>
 </html>
